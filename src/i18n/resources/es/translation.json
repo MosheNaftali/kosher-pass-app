@@ -1,0 +1,157 @@
+{
+  "common": {
+    "somethingWentWrong": "Algo salió mal",
+    "search": "Buscar",
+    "searchPlaceholder": "Buscar...",
+    "ok": "Aceptar",
+    "cancel": "Cancelar",
+    "seeAll": "Ver todo",
+    "oops": "Ups",
+    "noProductsYet": "Sin productos aún",
+    "categories": {
+      "snacks": "Snacks",
+      "beverages": "Bebidas",
+      "dairy": "Lácteos",
+      "meat": "Cárnicos",
+      "bakery": "Panadería",
+      "frozen": "Congelados"
+    },
+    "kashrut": {
+      "unknown": "Desconocido",
+      "pareve": "Parve",
+      "dairy": "Lácteos",
+      "meat": "Cárnicos",
+      "chalavYisrael": "Jalav Israel",
+      "mehadrin": "Mehadrín"
+    },
+    "certificate": {
+      "valid": "Vigente",
+      "expired": "Vencido",
+      "revoked": "Revocado"
+    },
+    "continents": {
+      "northAmerica": "Norteamérica",
+      "southAmerica": "Sudamérica",
+      "europe": "Europa",
+      "asia": "Asia",
+      "africa": "África",
+      "oceania": "Oceanía"
+    },
+    "filters": {
+      "moreSelected": "+{{count}} más",
+      "andMore": "y {{count}} más"
+    }
+  },
+  "tabs": {
+    "discover": "Descubrir",
+    "products": "Productos",
+    "scan": "Escanear",
+    "myList": "Mi Lista",
+    "agencies": "Agencias"
+  },
+  "discover": {
+    "heroTitle": "Descubrir",
+    "tagline": "Productos Kosher, verificados.",
+    "searchPlaceholder": "Buscar productos, marcas...",
+    "featuredProducts": "Productos Destacados",
+    "yourAgencies": "Tus Agencias",
+    "noAlerts": "Sin alertas nuevas",
+    "newProductAdded": "Nuevo producto: {{name}}",
+    "agencyNowOn": "{{name}} ahora en Kosher Pass"
+  },
+  "alerts": {
+    "heroTitle": "Alertas",
+    "newProduct": "Nuevo producto agregado",
+    "agencyJoined": "Agencia se unió a Kosher Pass",
+    "noAlertsTitle": "Sin alertas aún",
+    "noAlertsMessage": "Vuelve más tarde para ver novedades"
+  },
+  "scan": {
+    "cameraPermissionTitle": "Permiso de cámara requerido",
+    "cameraPermissionBody": "Habilita el acceso a la cámara en Configuración para escanear códigos de barras.",
+    "openSettings": "Abrir Configuración",
+    "productNotFoundTitle": "Producto no encontrado",
+    "productNotFoundBody": "No encontramos un producto con el código \"{{code}}\" en nuestro catálogo.",
+    "productNotFoundManualBody": "No encontramos un producto con el código \"{{code}}\" en nuestro catálogo.",
+    "searchByName": "Buscar por nombre",
+    "errorTitle": "Error",
+    "searchFailed": "Error al buscar el producto. Inténtalo de nuevo.",
+    "grantPermission": "Conceder permiso",
+    "cameraAccessNeededTitle": "Acceso a cámara necesario",
+    "cameraAccessNeededBody": "Permite el acceso a la cámara para escanear códigos de barras",
+    "typeBarcode": "Escribe el código de barras",
+    "searchButton": "Buscar",
+    "tapToScanAgain": "Toca para escanear de nuevo",
+    "positionBarcode": "Coloca el código de barras dentro del marco"
+  },
+  "mylist": {
+    "heroTitle": "Mi Lista",
+    "shoppingList": "Lista de Compras",
+    "agencies": "Agencias",
+    "clearPurchased": "Limpiar comprados ({{count}})",
+    "emptyListTitle": "Tu lista está vacía",
+    "emptyListMessage": "Agrega productos mientras navegas para llevar un registro de qué comprar",
+    "noFavoritesTitle": "Sin agencias favoritas",
+    "noFavoritesMessage": "Sigue agencias para verlas aquí"
+  },
+  "products": {
+    "heroTitle": "Productos",
+    "searchPlaceholder": "Buscar productos...",
+    "kashrut": "Kashrut",
+    "mehadrin": "Mehadrín",
+    "category": "Categoría",
+    "agency": "Agencia",
+    "agencyFilterHint": "Filtrar por agencia certificadora (opcional)",
+    "noCountries": "No hay países disponibles",
+    "noAgencies": "No hay agencias disponibles",
+    "noProductsFound": "No se encontraron productos",
+    "adjustSearch": "Intenta ajustar tu búsqueda o filtros",
+    "filtersTitle": "Filtros",
+    "apply": "Aplicar",
+    "reset": "Restablecer",
+    "productCode": "Código del producto",
+    "categoryLabel": "Categoría",
+    "country": "País",
+    "certifyingAgency": "Agencia Certificadora",
+    "certificate": "Certificado",
+    "viewScan": "Ver escaneo del certificado",
+    "notes": "Notas",
+    "addedToList": "Agregado a la lista",
+    "addToList": "Agregar a la lista",
+    "productNotFound": "Producto no encontrado",
+    "failedToLoad": "Error al cargar el producto"
+  },
+  "agencies": {
+    "heroTitle": "Agencias",
+    "subtitle": "Organizaciones certificadoras",
+    "searchPlaceholder": "Buscar agencias...",
+    "noAgenciesFound": "No se encontraron agencias",
+    "tryDifferentSearch": "Prueba con otro término de búsqueda",
+    "following": "Siguiendo",
+    "follow": "Seguir",
+    "website": "Sitio web",
+    "certificates": "Certificados",
+    "certificateFallback": "Certificado #{{id}}",
+    "productsFrom": "Productos de {{name}}",
+    "noProductsYet": "Sin productos aún",
+    "agencyNotFound": "Agencia no encontrada",
+    "failedToLoad": "Error al cargar la agencia"
+  },
+  "about": {
+    "heroTitle": "Acerca de",
+    "developer": "Desarrollador",
+    "developerName": "Tu Nombre",
+    "developerRole": "Desarrollador Móvil y Web",
+    "developerBio": "Apasionado por construir experiencias móviles útiles y bien elaboradas. Especializado en React Native, Expo y tecnologías web modernas.",
+    "appName": "Kosher Pass",
+    "appTagline": "Productos Kosher, verificados.",
+    "version": "Versión {{version}}",
+    "contactSection": "Contacto",
+    "contactSubtitle": "Nos encantaría saber de ti. Escríbenos cuando quieras.",
+    "feedbackButton": "Sugerencias y Comentarios",
+    "feedbackDescription": "Comparte tus ideas o reporta un problema",
+    "servicesButton": "Servicios de Desarrollo",
+    "servicesDescription": "¿Necesitas una app o sitio web? Hablemos",
+    "copyright": "© {{year}} Kosher Pass. Todos los derechos reservados."
+  }
+}
