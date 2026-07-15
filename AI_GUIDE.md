@@ -101,6 +101,7 @@ All API calls go through here. Base URL is in `api.ts` via `expo-constants`.
 | `products.ts` | Product endpoints (`getProducts`, `getProductById`, ...). |
 | `agencies.ts` | Agency endpoints. |
 | `certificates.ts` | Certificate endpoints. |
+| `countries.ts` | Country endpoints (`getCountriesWithAgencies` — returns countries with their agencies). |
 
 ---
 

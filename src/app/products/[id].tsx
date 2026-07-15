@@ -15,6 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { ExternalLink } from '@/components/external-link';
 import { CertificateBadge } from '@/components/certificate-badge';
 import { EmptyState } from '@/components/empty-state';
+import { FreshnessAlert } from '@/components/freshness-alert';
+import { FreshnessIndicatorDetailed } from '@/components/freshness-indicator';
 import { KashrutBadge } from '@/components/kashrut-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -23,6 +25,7 @@ import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
 import { API_BASE_URL } from '@/services/api';
 import { getProductById, type Product } from '@/services/products';
+import LogoImage from '@/assets/images/logo.png';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -97,6 +100,47 @@ export default function ProductDetailScreen() {
       : `${API_BASE_URL}${product.imgUrl}`
     : null;
 
+  const formattedUpdatedAt = new Date(product.updatedAt).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const validFrom = product.certificateId?.validFrom ?? null;
+  const validUntil = product.certificateId?.validUntil ?? null;
+  const formattedValidFrom = validFrom
+    ? new Date(validFrom).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+    : null;
+  const formattedValidUntil = validUntil
+    ? new Date(validUntil).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+    : null;
+
+  let validityRow: { label: string; value: string } | null = null;
+  if (formattedValidFrom && formattedValidUntil) {
+    validityRow = {
+      label: t('products.certificateValidity'),
+      value: `${formattedValidFrom} → ${formattedValidUntil}`,
+    };
+  } else if (formattedValidUntil) {
+    validityRow = {
+      label: t('products.certificateValidUntil'),
+      value: t('products.certificateExpires', { date: formattedValidUntil }),
+    };
+  } else if (formattedValidFrom) {
+    validityRow = {
+      label: t('products.certificateValidFrom'),
+      value: formattedValidFrom,
+    };
+  }
+
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
       <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -109,12 +153,16 @@ export default function ProductDetailScreen() {
             <Image source={{ uri: imageSource }} style={styles.image} contentFit="cover" />
           ) : (
             <ThemedView type="surfaceElevated" style={styles.imagePlaceholder}>
-              <SymbolView name="cube.box" tintColor={theme.textMuted} size={64} />
+              <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
+              <ThemedText type="h3" themeColor="textMuted" style={styles.placeholderText}>
+                {t('products.noImage')}
+              </ThemedText>
             </ThemedView>
           )}
         </ThemedView>
 
         <ThemedView type="surface" style={styles.infoCard}>
+          <FreshnessAlert updatedAt={product.updatedAt} />
           <View style={styles.titleRow}>
             <View style={styles.titleSection}>
               <ThemedText type="h2">{product.name}</ThemedText>
@@ -130,12 +178,12 @@ export default function ProductDetailScreen() {
             <KashrutBadge level={product.kashrutLevel} showMehadrin={product.isMehadrin} />
           </View>
 
-          {product.productCode && (
+          {product.barcode && (
             <View style={styles.metaRow}>
               <ThemedText type="small" themeColor="textSecondary">
-                {t('products.productCode')}
+                {t('products.barcode')}
               </ThemedText>
-              <ThemedText type="smallMedium">{product.productCode}</ThemedText>
+              <ThemedText type="smallMedium">{product.barcode}</ThemedText>
             </View>
           )}
 
@@ -158,6 +206,16 @@ export default function ProductDetailScreen() {
               <ThemedText type="smallMedium">{product.countryId.label}</ThemedText>
             </View>
           )}
+
+          <View style={styles.lastUpdatedRow}>
+            <View style={styles.lastUpdatedText}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t('common.freshness.lastUpdated')}
+              </ThemedText>
+              <ThemedText type="smallMedium">{formattedUpdatedAt}</ThemedText>
+            </View>
+            <FreshnessIndicatorDetailed updatedAt={product.updatedAt} />
+          </View>
         </ThemedView>
 
         {product.agencyId && (
@@ -187,6 +245,14 @@ export default function ProductDetailScreen() {
                 </ThemedText>
               )}
             </View>
+            {validityRow && (
+              <View style={styles.metaRow}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {validityRow.label}
+                </ThemedText>
+                <ThemedText type="smallMedium">{validityRow.value}</ThemedText>
+              </View>
+            )}
             {product.certificateId.scanUrl && (
               <ExternalLink href={product.certificateId.scanUrl} asChild>
                 <Pressable style={styles.scanLink}>
@@ -265,6 +331,14 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: Spacing.three,
+  },
+  placeholderLogo: {
+    width: 120,
+    height: 120,
+  },
+  placeholderText: {
+    marginTop: Spacing.two,
   },
   infoCard: {
     marginHorizontal: Spacing.four,
@@ -291,6 +365,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  lastUpdatedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  lastUpdatedText: {
+    flex: 1,
+    gap: Spacing.half,
   },
   section: {
     marginHorizontal: Spacing.four,

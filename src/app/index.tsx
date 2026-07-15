@@ -27,19 +27,6 @@ import { useTheme } from '@/hooks/use-theme';
 import { getAgencies, type Agency } from '@/services/agencies';
 import { getProducts, type Product } from '@/services/products';
 
-interface CategoryItem {
-  translationKey: string;
-  value: string;
-}
-
-const CATEGORIES: CategoryItem[] = [
-  { translationKey: 'common.kashrut.pareve', value: 'pareve' },
-  { translationKey: 'common.kashrut.dairy', value: 'dairy' },
-  { translationKey: 'common.kashrut.meat', value: 'meat' },
-  { translationKey: 'common.kashrut.chalavYisrael', value: 'dairy_chalav_yisrael' },
-  { translationKey: 'common.kashrut.mehadrin', value: 'mehadrin' },
-];
-
 export default function DiscoverScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -74,14 +61,6 @@ export default function DiscoverScreen() {
   useEffect(() => {
     load();
   }, [load]);
-
-  function handleCategoryPress(value: string) {
-    if (value === 'mehadrin') {
-      router.push({ pathname: '/products', params: { mehadrin: 'true' } });
-    } else {
-      router.push({ pathname: '/products', params: { kashrutLevel: value } });
-    }
-  }
 
   function handleProductPress(product: Product) {
     router.push(`/products/${product.id}`);
@@ -131,19 +110,6 @@ export default function DiscoverScreen() {
             placeholder={t('discover.searchPlaceholder')}
           />
         </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categories}>
-          {CATEGORIES.map(category => (
-            <CategoryChip
-              key={category.value}
-              label={t(category.translationKey)}
-              onPress={() => handleCategoryPress(category.value)}
-            />
-          ))}
-        </ScrollView>
 
         {loading ? (
           <ActivityIndicator style={styles.loader} color={theme.accent} size="large" />
@@ -322,11 +288,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
     paddingBottom: Spacing.three,
-  },
-  categories: {
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
-    paddingBottom: Spacing.four,
   },
   loader: {
     marginVertical: Spacing.seven,

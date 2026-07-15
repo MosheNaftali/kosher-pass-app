@@ -97,6 +97,8 @@ app/
     │   ├── agency-row.tsx          # Agency list row
     │   ├── kashrut-badge.tsx       # Colored kashrut level badge
     │   ├── certificate-badge.tsx   # Certificate status badge
+    │   ├── freshness-indicator.tsx # Last-updated indicator (compact + detailed variants)
+    │   ├── freshness-alert.tsx     # Alert banner for stale/outdated products
     │   ├── search-bar.tsx          # Reusable search input
     │   ├── category-chip.tsx       # Filter/tag chip
     │   ├── quantity-stepper.tsx    # Shopping list quantity control
@@ -106,6 +108,9 @@ app/
     │   └── skeleton-card.tsx       # Shimmer loading placeholder
     ├── constants/
     │   └── theme.ts                # Design tokens: Colors, Fonts, Spacing, Radius, Shadows
+    ├── utils/                      # Pure helpers (no React, no I/O)
+    │   ├── countries.ts            # Country/continent grouping helpers
+    │   └── freshness.ts            # Freshness tier computation from updatedAt
 ├── hooks/
 │   ├── use-color-scheme.ts     # Native: re-exports RN's useColorScheme
 │   ├── use-color-scheme.web.ts # Web: hydration-safe color scheme hook
@@ -541,18 +546,19 @@ Never render 4+ horizontal-scroll filter rows inline on a list screen.
 
 When a screen needs a country filter (products, agencies, scan results, etc.), follow the two-level Country + Agency pattern:
 
-1. **Country first, Agency optional.** Render the "Country" section above the "Agency" section. Country is primary; Agency is a secondary refinement, scoped to the selected countries.
-2. **Group countries by continent** using `groupCountriesByContinent()` from `@/utils/countries`. The grouping is client-side (the `Country` entity has no continent column) and lives in a small lookup table; anything unmapped is filtered out. Continent labels go through `common.continents.<key>` translation keys.
-3. **Inline chevron row per continent** (do **not** use the generic `Collapsible` here — it doesn't match the bottom-sheet density). Each row has:
+1. **Single data source.** Call `getCountriesWithAgencies()` from `@/services/countries` once. This returns `[{ id, label, agencies: [{ id, name }] }]` — countries with their active agencies bundled. Derive both the country list and the agency list from this single response.
+2. **Country first, Agency optional.** Render the "Country" section above the "Agency" section. Country is primary; Agency is a secondary refinement, scoped to the selected countries.
+3. **Group countries by continent** using `groupCountriesByContinent()` from `@/utils/countries`. The grouping is client-side (the `Country` entity has no continent column) and lives in a small lookup table; anything unmapped is filtered out. Continent labels go through `common.continents.<key>` translation keys.
+4. **Inline chevron row per continent** (do **not** use the generic `Collapsible` here — it doesn't match the bottom-sheet density). Each row has:
    - Continent label + a `selectedCount/total` badge (accent when selected, muted otherwise)
    - A `chevron.down` icon that rotates 180° on expand
    - A `CategoryChip` wrap of countries when open
-4. **Auto-expand the rows that already have a pending selection** so users see what they picked without hunting. The auto-expand must only fire once per row per sheet open — use a `useRef` flag to guard it.
-5. **Multi-select countries.** State is `Set<number>` of country IDs, mirrored as `pendingCountryIds` inside the sheet. Toggling a country creates a new `Set` so React detects the change.
-6. **Scope the Agency list to the pending country selection.** Compute `availableAgencies` from `pendingCountryIds` (not `selectedCountryIds`) so the sheet reflects the staged state. When no countries are pending, show all agencies.
-7. **Filter products client-side** by country and agency, consistent with how kashrut and mehadrin are already filtered. The backend's `getProducts` does not need a `countryIds[]` param for this.
-8. **Active filter chips row.** Wrap the horizontal `FlatList` in a `View` with `paddingHorizontal: Spacing.four` (do **not** put `paddingHorizontal` on `contentContainerStyle` — it has been observed to be ignored on some RN versions, causing chips to bleed off the left edge). Keep `paddingTop` and `gap` on `contentContainerStyle` so the scroll content is correct.
-9. **Cap the active country chips at 6**, then add a static `+N more` chip that opens the filter sheet (use `common.filters.moreSelected` for the label). Chips with a defined `onRemove` show an `xmark` glyph; the `+N more` chip is tap-only.
+5. **Auto-expand the rows that already have a pending selection** so users see what they picked without hunting. The auto-expand must only fire once per row per sheet open — use a `useRef` flag to guard it.
+6. **Multi-select countries.** State is `Set<number>` of country IDs, mirrored as `pendingCountryIds` inside the sheet. Toggling a country creates a new `Set` so React detects the change.
+7. **Scope the Agency list to the pending country selection.** Compute `availableAgencies` from `pendingCountryIds` (not `selectedCountryIds`) so the sheet reflects the staged state. When no countries are pending, show all agencies.
+8. **Search inputs in each section.** Add a `SearchBar` at the top of both the Country and Agency sections. Country search filters the continent groups (hide empty groups). Agency search filters the agency chips. Use local state (`countrySearch`, `agencySearch`) that resets when the sheet opens.
+9. **Active filter chips row.** Wrap the horizontal `FlatList` in a `View` with `paddingHorizontal: Spacing.four` (do **not** put `paddingHorizontal` on `contentContainerStyle` — it has been observed to be ignored on some RN versions, causing chips to bleed off the left edge). Keep `paddingTop` and `gap` on `contentContainerStyle` so the scroll content is correct.
+10. **Cap the active country chips at 6**, then add a static `+N more` chip that opens the filter sheet (use `common.filters.moreSelected` for the label). Chips with a defined `onRemove` show an `xmark` glyph; the `+N more` chip is tap-only.
 
 ### Pattern: active filter chip row
 
@@ -791,10 +797,50 @@ const styles = StyleSheet.create({
 ### Rules
 
 - **Named exports** for all components. No `export default function` except for route files (`_layout.tsx`, `index.tsx`) where Expo Router requires it, and platform-switched files (`app-tabs.tsx`/`app-tabs.web.tsx`) where the default export serves as the platform-dispatched module.
-- **Expose prop types** alongside the component so consumers can extend them.
+- **Expose prop types** alongside the component so consumers need them.
 - **Spread remaining props** (`...rest`) onto the root element so `style`, `testID`, and accessibility props work.
 - **Colocate styles** at the bottom of the file via `StyleSheet.create`.
 - **Extract reusable subcomponents** when a single file exceeds ~200 lines or when the subcomponent is reused elsewhere.
+
+### Pattern: Freshness indicator (last-updated warnings)
+
+Products expose an `updatedAt` ISO string. The longer a product goes without an update, the more cautious a customer should be about trusting it. The freshness system turns that staleness into a visible, color-coded signal across the product list and the detail screen.
+
+**Source of truth** lives in `src/utils/freshness.ts`:
+
+| Export | Purpose |
+|---|---|
+| `FreshnessTier` | `'fresh' \| 'aging' \| 'stale' \| 'outdated'` |
+| `FRESHNESS_THRESHOLDS` | Tunable day counts (`fresh: 14`, `aging: 60`, `stale: 120`) |
+| `getDaysSince(updatedAt, now?)` | Integer days between `updatedAt` and now |
+| `getFreshnessTier(updatedAt, now?)` | Tier classification |
+
+**Tiers and visual mapping:**
+
+| Tier | Days since `updatedAt` | Color (theme) | Icon (SF / Web) | Where it appears |
+|---|---|---|---|---|
+| `fresh` | ≤ 14 | `success` | `checkmark.seal.fill` / `verified` | Detail screen "Last updated" row only |
+| `aging` | 15–60 | `warning` | `clock` / `schedule` | Card overlay + detail row |
+| `stale` | 61–120 | `warning` | `exclamationmark.triangle.fill` / `warning` | Card overlay + detail row + alert banner at top of info card |
+| `outdated` | > 120 | `error` | `exclamationmark.octagon.fill` / `report` | Card overlay + red-tinted card border + detail row + red alert banner |
+
+**Components** in `src/components/`:
+
+- `FreshnessIndicator` (compact) — small circular glyph, top-right overlay on the `ProductCard` image. Returns `null` when tier is `fresh`.
+- `FreshnessIndicatorDetailed` — inline pill with icon + "Updated N days ago" label, used in the detail screen's "Last updated" row. Always renders (even when `fresh`).
+- `FreshnessAlert` — banner rendered at the top of the product detail's info card. Returns `null` unless tier is `stale` or `outdated`. Uses `theme.warning` / `theme.error` tinted backgrounds.
+
+**Card treatment:** The `ProductCard` wraps the image in a `View` with `position: 'relative'`, places the compact indicator absolutely at `top: Spacing.two, right: Spacing.two`, and for the `outdated` tier applies a 1.5px border in `theme.error`.
+
+**i18n:** All labels and copy live under `common.freshness.*`:
+
+- `lastUpdated` — label for the detail screen row
+- `lastUpdatedDaysAgo` — interpolation `{{days}}` used by the detailed indicator
+- `fresh` / `aging` / `stale` / `outdated` — short tier labels
+- `staleAlertTitle` / `staleAlertBody` — banner copy (title interpolates `{{days}}`)
+- `outdatedAlertTitle` / `outdatedAlertBody` — banner copy (title interpolates `{{days}}`)
+
+**When to add a new tier:** Update both `FRESHNESS_THRESHOLDS` and the `tierColor` / `tierIcon` / `tierTranslationKey` maps in the relevant components in lockstep. Then add the matching translation keys to `en` and `es`.
 
 ---
 
@@ -944,6 +990,10 @@ These are safe to run without asking:
 
 The AI assistant is expected to keep the project metadata in sync **automatically**, in the same turn it makes a change. Treat the following as mandatory:
 
+### 0. `FILE_STRUCTURE.md` (root) — **MASTER CATALOG**
+
+**THE MOST IMPORTANT RULE:** Whenever a file or folder is created, renamed, or deleted ANYWHERE in the project (app/, server/, assets/), update `/final_code/FILE_STRUCTURE.md` in the same turn. This is the primary catalog the AI uses to locate files across the entire monorepo. Leaving it stale is a bug. **All entries and descriptions must be written in English.**
+
 ### 1. `AGENTS.md` (this file)
 
 Update if the change affects:
@@ -1000,6 +1050,15 @@ No testing framework is set up yet. The README references [Jest setup guide](htt
 - Test coverage goal: critical business logic, API services, navigation guards.
 - Component tests: use `@testing-library/react-native`.
 - Add `pnpm test` script to `package.json`.
+
+### 7. Cross-boundary API changes
+
+When a task modifies anything that affects the contract between the app (mobile client) and the server (api/worker) — such as request parameters, response shapes, new or removed endpoints, DTO changes, query params, error codes, or shared type definitions — the AI **must**, after completing the task, produce a **ready-to-paste prompt** that the user can pass to a separate session working on the other side. The prompt must:
+- Clearly state which side was changed (server or app).
+- List every endpoint affected (method + path).
+- Show the old vs. new request/response shapes (TypeScript types or JSON examples).
+- Specify what the other side needs to update (service files, types, components, etc.).
+- Be self-contained — the receiving session should be able to act on it without additional context.
 
 ---
 

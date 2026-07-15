@@ -26,11 +26,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useTheme } from '@/hooks/use-theme';
-import { getAgencies, type Agency } from '@/services/agencies';
 import { getProducts, type Product } from '@/services/products';
+import { getCountriesWithAgencies, type CountryWithAgencies } from '@/services/countries';
 import {
   CONTINENT_TRANSLATION_KEYS,
   groupCountriesByContinent,
+  type Continent,
   type ContinentGroup,
   type CountryOption,
 } from '@/utils/countries';
@@ -49,23 +50,11 @@ const COMMON_CATEGORIES: CategoryItem[] = [
   { translationKey: 'common.categories.frozen', value: 'Frozen' },
 ];
 
-interface KashrutItem {
-  translationKey: string;
-  value: string;
-}
-
-const KASHRUT_LEVELS: KashrutItem[] = [
-  { translationKey: 'common.kashrut.pareve', value: 'pareve' },
-  { translationKey: 'common.kashrut.dairy', value: 'dairy' },
-  { translationKey: 'common.kashrut.meat', value: 'meat' },
-  { translationKey: 'common.kashrut.chalavYisrael', value: 'dairy_chalav_yisrael' },
-];
-
 const MAX_VISIBLE_COUNTRY_CHIPS = 6;
 
 export default function ProductsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ name?: string; kashrutLevel?: string; mehadrin?: string }>();
+  const params = useLocalSearchParams<{ name?: string }>();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -73,30 +62,25 @@ export default function ProductsScreen() {
   const [searchQuery, setSearchQuery] = useState(params.name ?? '');
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedKashrut, setSelectedKashrut] = useState<string | null>(
-    params.kashrutLevel ?? null
-  );
-  const [isMehadrin, setIsMehadrin] = useState(params.mehadrin === 'true');
   const [selectedCountryIds, setSelectedCountryIds] = useState<Set<number>>(new Set());
   const [selectedAgencyId, setSelectedAgencyId] = useState<string | null>(null);
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
-  const [pendingKashrut, setPendingKashrut] = useState<string | null>(null);
-  const [pendingMehadrin, setPendingMehadrin] = useState(false);
   const [pendingCountryIds, setPendingCountryIds] = useState<Set<number>>(new Set());
   const [pendingAgencyId, setPendingAgencyId] = useState<string | null>(null);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [agencySearch, setAgencySearch] = useState('');
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [countries, setCountries] = useState<CountryWithAgencies[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  console.log(agencies)
+  console.log({ countries })
 
   const loadProducts = useCallback(
     async (pageToLoad: number, shouldRefresh = false) => {
@@ -118,12 +102,6 @@ export default function ProductsScreen() {
         });
 
         let filtered = response.data;
-        if (selectedKashrut) {
-          filtered = filtered.filter(product => product.kashrutLevel === selectedKashrut);
-        }
-        if (isMehadrin) {
-          filtered = filtered.filter(product => product.isMehadrin);
-        }
         if (selectedCountryIds.size > 0) {
           filtered = filtered.filter(
             product => product.countryId !== null && selectedCountryIds.has(product.countryId.id)
@@ -149,15 +127,7 @@ export default function ProductsScreen() {
         setRefreshing(false);
       }
     },
-    [
-      debouncedSearch,
-      selectedCategory,
-      selectedKashrut,
-      isMehadrin,
-      selectedCountryIds,
-      selectedAgencyId,
-      t,
-    ]
+    [debouncedSearch, selectedCategory, selectedCountryIds, selectedAgencyId, t]
   );
 
   useEffect(() => {
@@ -165,9 +135,9 @@ export default function ProductsScreen() {
   }, [loadProducts]);
 
   useEffect(() => {
-    getAgencies()
-      .then(setAgencies)
-      .catch(err => console.error('Failed to load agencies', err));
+    getCountriesWithAgencies()
+      .then(setCountries)
+      .catch(err => console.error('Failed to load countries', err));
   }, []);
 
   function handleLoadMore() {
@@ -186,17 +156,15 @@ export default function ProductsScreen() {
 
   function openFilterSheet() {
     setPendingCategory(selectedCategory);
-    setPendingKashrut(selectedKashrut);
-    setPendingMehadrin(isMehadrin);
     setPendingCountryIds(new Set(selectedCountryIds));
     setPendingAgencyId(selectedAgencyId);
+    setCountrySearch('');
+    setAgencySearch('');
     setFilterSheetOpen(true);
   }
 
   function applyFilters() {
     setSelectedCategory(pendingCategory);
-    setSelectedKashrut(pendingKashrut);
-    setIsMehadrin(pendingMehadrin);
     setSelectedCountryIds(pendingCountryIds);
     setSelectedAgencyId(pendingAgencyId);
     setFilterSheetOpen(false);
@@ -204,14 +172,8 @@ export default function ProductsScreen() {
 
   function resetFilters() {
     setPendingCategory(null);
-    setPendingKashrut(null);
-    setPendingMehadrin(false);
     setPendingCountryIds(new Set());
     setPendingAgencyId(null);
-  }
-
-  function togglePendingKashrut(level: string) {
-    setPendingKashrut(prev => (prev === level ? null : level));
   }
 
   function togglePendingCountry(id: number) {
@@ -226,57 +188,61 @@ export default function ProductsScreen() {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (selectedCategory) count += 1;
-    if (selectedKashrut) count += 1;
-    if (isMehadrin) count += 1;
     if (selectedCountryIds.size > 0) count += selectedCountryIds.size;
     if (selectedAgencyId) count += 1;
     return count;
-  }, [selectedCategory, selectedKashrut, isMehadrin, selectedCountryIds, selectedAgencyId]);
+  }, [selectedCategory, selectedCountryIds, selectedAgencyId]);
 
   const filteredProducts = products;
 
-  const allCountries = useMemo<CountryOption[]>(() => {
-    const map = new Map<number, CountryOption>();
-    for (const agency of agencies) {
-      const country = agency.countryId;
-      if (country && !map.has(country.id)) {
-        map.set(country.id, country);
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [agencies]);
+  const allCountries = useMemo<CountryOption[]>(
+    () =>
+      countries
+        .map(c => ({ id: c.id, label: c.label, continent: c.continent as Continent }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [countries]
+  );
+
+  const allAgencies = useMemo(
+    () => countries.flatMap(c => c.agencies),
+    [countries]
+  );
 
   const continentGroups = useMemo<ContinentGroup[]>(
     () => groupCountriesByContinent(allCountries),
     [allCountries]
   );
 
+  const filteredContinentGroups = useMemo(() => {
+    const query = countrySearch.trim().toLowerCase();
+    if (!query) return continentGroups;
+    return continentGroups
+      .map(group => ({
+        ...group,
+        countries: group.countries.filter(c =>
+          c.label.toLowerCase().includes(query)
+        ),
+      }))
+      .filter(group => group.countries.length > 0);
+  }, [continentGroups, countrySearch]);
+
   const availableAgencies = useMemo(() => {
-    if (pendingCountryIds.size === 0) return agencies;
-    return agencies.filter(
-      agency => agency.countryId !== null && pendingCountryIds.has(agency.countryId.id)
+    if (pendingCountryIds.size === 0) return allAgencies;
+    return countries
+      .filter(c => pendingCountryIds.has(c.id))
+      .flatMap(c => c.agencies);
+  }, [countries, allAgencies, pendingCountryIds]);
+
+  const filteredAvailableAgencies = useMemo(() => {
+    const query = agencySearch.trim().toLowerCase();
+    if (!query) return availableAgencies;
+    return availableAgencies.filter(a =>
+      a.name.toLowerCase().includes(query)
     );
-  }, [agencies, pendingCountryIds]);
+  }, [availableAgencies, agencySearch]);
 
   const activeChips = useMemo(() => {
     const chips: { id: string; label: string; onRemove?: () => void; isMore?: boolean }[] = [];
-    if (selectedKashrut) {
-      const level = KASHRUT_LEVELS.find(k => k.value === selectedKashrut);
-      if (level) {
-        chips.push({
-          id: `kashrut-${selectedKashrut}`,
-          label: t(level.translationKey),
-          onRemove: () => setSelectedKashrut(null),
-        });
-      }
-    }
-    if (isMehadrin) {
-      chips.push({
-        id: 'mehadrin',
-        label: t('common.kashrut.mehadrin'),
-        onRemove: () => setIsMehadrin(false),
-      });
-    }
     if (selectedCategory) {
       const cat = COMMON_CATEGORIES.find(c => c.value === selectedCategory);
       if (cat) {
@@ -309,7 +275,7 @@ export default function ProductsScreen() {
       });
     }
     if (selectedAgencyId) {
-      const agency = agencies.find(a => a.id === selectedAgencyId);
+      const agency = allAgencies.find(a => a.id === selectedAgencyId);
       if (agency) {
         chips.push({
           id: `agency-${selectedAgencyId}`,
@@ -319,16 +285,7 @@ export default function ProductsScreen() {
       }
     }
     return chips;
-  }, [
-    selectedKashrut,
-    selectedCategory,
-    selectedCountryIds,
-    selectedAgencyId,
-    isMehadrin,
-    agencies,
-    allCountries,
-    t,
-  ]);
+  }, [selectedCategory, selectedCountryIds, selectedAgencyId, allCountries, allAgencies, t]);
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
@@ -450,13 +407,20 @@ export default function ProductsScreen() {
               showsVerticalScrollIndicator={false}>
 
               <FilterSection title={t('products.country')}>
-                {continentGroups.length === 0 ? (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {t('products.noCountries')}
+                <View style={styles.sectionSearch}>
+                  <SearchBar
+                    value={countrySearch}
+                    onChangeText={setCountrySearch}
+                    placeholder={t('products.searchCountryPlaceholder')}
+                  />
+                </View>
+                {filteredContinentGroups.length === 0 ? (
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.sectionEmpty}>
+                    {t('products.noMatches')}
                   </ThemedText>
                 ) : (
                   <View style={styles.continentList}>
-                    {continentGroups.map(group => (
+                    {filteredContinentGroups.map(group => (
                       <ContinentRow
                         key={group.continent}
                         group={group}
@@ -473,16 +437,20 @@ export default function ProductsScreen() {
               </FilterSection>
 
               <FilterSection title={t('products.agency')}>
-                <ThemedText type="caption" themeColor="textSecondary" style={styles.agencyHint}>
-                  {t('products.agencyFilterHint')}
-                </ThemedText>
-                {availableAgencies.length === 0 ? (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {t('products.noAgencies')}
+                <View style={styles.sectionSearch}>
+                  <SearchBar
+                    value={agencySearch}
+                    onChangeText={setAgencySearch}
+                    placeholder={t('products.searchAgencyPlaceholder')}
+                  />
+                </View>
+                {filteredAvailableAgencies.length === 0 ? (
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.sectionEmpty}>
+                    {t('products.noMatches')}
                   </ThemedText>
                 ) : (
                   <View style={styles.chipWrap}>
-                    {availableAgencies.map(agency => (
+                    {filteredAvailableAgencies.map(agency => (
                       <CategoryChip
                         key={agency.id}
                         label={agency.name}
@@ -492,26 +460,6 @@ export default function ProductsScreen() {
                     ))}
                   </View>
                 )}
-              </FilterSection>
-
-              <FilterSection title={t('products.kashrut')}>
-                <View style={styles.chipWrap}>
-                  {KASHRUT_LEVELS.map(level => (
-                    <CategoryChip
-                      key={level.value}
-                      label={t(level.translationKey)}
-                      selected={pendingKashrut === level.value}
-                      onPress={() => togglePendingKashrut(level.value)}
-                    />
-                  ))}
-                </View>
-                <View style={styles.chipWrap}>
-                  <CategoryChip
-                    label={t('common.kashrut.mehadrin')}
-                    selected={pendingMehadrin}
-                    onPress={() => setPendingMehadrin(prev => !prev)}
-                  />
-                </View>
               </FilterSection>
             </ScrollView>
 
@@ -803,6 +751,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  sectionSearch: {
+    marginBottom: -Spacing.one,
+  },
+  sectionEmpty: {
+    paddingHorizontal: Spacing.three,
+  },
   continentList: {
     gap: Spacing.two,
   },
@@ -834,9 +788,6 @@ const styles = StyleSheet.create({
   continentBadgeText: {
     fontSize: 11,
     lineHeight: 14,
-  },
-  agencyHint: {
-    marginTop: -Spacing.one,
   },
   chipWrap: {
     flexDirection: 'row',

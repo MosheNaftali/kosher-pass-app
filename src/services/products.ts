@@ -11,7 +11,8 @@ export interface Product {
   brand: string | null;
   category: string | null;
   subCategory: string | null;
-  productCode: string | null;
+  barcode: string | null;
+  externalId: string | null;
   kashrutLevel: KashrutLevel;
   isMehadrin: boolean;
   countryId: { id: number; label: string } | null;
@@ -84,7 +85,7 @@ export async function getProductById(id: number): Promise<Product | null> {
 
 export async function searchProductByBarcode(barcode: string): Promise<Product | null> {
   const response = await getProducts({ name: barcode, page: 1 });
-  return response.data.find(product => product.productCode === barcode) ?? null;
+  return response.data.find(product => product.barcode === barcode) ?? null;
 }
 
 export { API_BASE_URL };

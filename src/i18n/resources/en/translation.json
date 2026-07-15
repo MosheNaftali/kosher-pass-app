@@ -29,13 +29,27 @@
       "expired": "Expired",
       "revoked": "Revoked"
     },
+    "freshness": {
+      "lastUpdated": "Last updated",
+      "lastUpdatedDaysAgo": "Updated {{days}} days ago",
+      "fresh": "Recently verified",
+      "aging": "Verify periodically",
+      "stale": "Needs verification",
+      "outdated": "Verify before use",
+      "staleAlertTitle": "Not updated in {{days}} days",
+      "staleAlertBody": "We recommend verifying the kashrut status with the certifying agency before relying on this product.",
+      "outdatedAlertTitle": "Not updated in {{days}} days",
+      "outdatedAlertBody": "Please confirm the kashrut status directly with the certifying agency before using this product."
+    },
     "continents": {
       "northAmerica": "North America",
+      "centralAmerica": "Central America",
       "southAmerica": "South America",
       "europe": "Europe",
       "asia": "Asia",
       "africa": "Africa",
-      "oceania": "Oceania"
+      "oceania": "Oceania",
+      "other": "Other"
     },
     "filters": {
       "moreSelected": "+{{count}} more",
@@ -97,29 +111,35 @@
   "products": {
     "heroTitle": "Products",
     "searchPlaceholder": "Search products...",
-    "kashrut": "Kashrut",
-    "mehadrin": "Mehadrin",
     "category": "Category",
     "agency": "Agency",
     "agencyFilterHint": "Filter by certifying agency (optional)",
     "noCountries": "No countries available",
     "noAgencies": "No agencies available",
+    "noMatches": "No matches",
     "noProductsFound": "No products found",
     "adjustSearch": "Try adjusting your search or filters",
     "filtersTitle": "Filters",
     "apply": "Apply",
     "reset": "Reset",
-    "productCode": "Product code",
+    "barcode": "Barcode",
     "categoryLabel": "Category",
     "country": "Country",
+    "searchCountryPlaceholder": "Search country",
+    "searchAgencyPlaceholder": "Search agency",
     "certifyingAgency": "Certifying Agency",
     "certificate": "Certificate",
     "viewScan": "View certificate scan",
+    "certificateValidity": "Validity",
+    "certificateValidFrom": "Valid from",
+    "certificateValidUntil": "Valid until",
+    "certificateExpires": "Expires {{date}}",
     "notes": "Notes",
     "addedToList": "Added to list",
     "addToList": "Add to shopping list",
     "productNotFound": "Product not found",
-    "failedToLoad": "Failed to load product"
+    "failedToLoad": "Failed to load product",
+    "noImage": "No Image"
   },
   "agencies": {
     "heroTitle": "Agencies",

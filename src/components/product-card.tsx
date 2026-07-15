@@ -1,8 +1,9 @@
-import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useSharedValue, withSpring } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 
+import { FreshnessIndicator } from './freshness-indicator';
 import { KashrutBadge } from './kashrut-badge';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
@@ -11,6 +12,8 @@ import { API_BASE_URL } from '@/services/api';
 import type { Product } from '@/services/products';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { getFreshnessTier } from '@/utils/freshness';
+import LogoImage from '@/assets/images/logo.png';
 
 interface ProductCardProps {
   product: Product;
@@ -20,7 +23,9 @@ interface ProductCardProps {
 
 export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const scale = useSharedValue(1);
+  const tier = getFreshnessTier(product.updatedAt);
 
   const imageSource = product.imgUrl
     ? product.imgUrl.startsWith('http')
@@ -48,6 +53,8 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
             {
               backgroundColor: theme.surface,
               transform: [{ scale }],
+              borderColor: tier === 'outdated' ? theme.error : 'transparent',
+              borderWidth: tier === 'outdated' ? 1.5 : 0,
             },
           ]}>
           <ThemedView style={styles.imageContainer}>
@@ -55,13 +62,15 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
               <Image source={{ uri: imageSource }} style={styles.image} contentFit="cover" />
             ) : (
               <ThemedView type="surfaceElevated" style={styles.imagePlaceholder}>
-                <SymbolView
-                  name={{ ios: 'cube.box', web: 'inventory_2' }}
-                  tintColor={theme.textMuted}
-                  size={32}
-                />
+                <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
+                <ThemedText type="caption" themeColor="textMuted" style={styles.placeholderText}>
+                  {t('products.noImage')}
+                </ThemedText>
               </ThemedView>
             )}
+            <View style={styles.freshnessOverlay} pointerEvents="none">
+              <FreshnessIndicator updatedAt={product.updatedAt} />
+            </View>
           </ThemedView>
 
           <ThemedView style={styles.content}>
@@ -91,6 +100,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     width: '100%',
     backgroundColor: 'transparent',
+    position: 'relative',
   },
   image: {
     width: '100%',
@@ -101,6 +111,19 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: Spacing.two,
+  },
+  placeholderLogo: {
+    width: 64,
+    height: 64,
+  },
+  placeholderText: {
+    marginTop: Spacing.one,
+  },
+  freshnessOverlay: {
+    position: 'absolute',
+    top: Spacing.two,
+    right: Spacing.two,
   },
   content: {
     padding: Spacing.three,

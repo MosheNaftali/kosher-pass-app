@@ -24,6 +24,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { API_BASE_URL } from '@/services/api';
 import { getAgencies, type Agency } from '@/services/agencies';
 import { getProducts, type Product } from '@/services/products';
+import LogoImage from '@/assets/images/logo.png';
 
 type TabType = 'shopping' | 'agencies';
 
@@ -240,7 +241,7 @@ function ShoppingListRow({
           <Image source={{ uri: imageSource }} style={styles.productImage} contentFit="cover" />
         ) : (
           <ThemedView type="surfaceElevated" style={styles.productImagePlaceholder}>
-            <SymbolView name="cube.box" tintColor={theme.textMuted} size={20} />
+            <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
           </ThemedView>
         )}
 
@@ -355,6 +356,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  placeholderLogo: {
+    width: 36,
+    height: 36,
   },
   productText: {
     flex: 1,

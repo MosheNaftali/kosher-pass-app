@@ -29,13 +29,27 @@
       "expired": "Vencido",
       "revoked": "Revocado"
     },
+    "freshness": {
+      "lastUpdated": "Última actualización",
+      "lastUpdatedDaysAgo": "Actualizado hace {{days}} días",
+      "fresh": "Verificado recientemente",
+      "aging": "Verificar periódicamente",
+      "stale": "Necesita verificación",
+      "outdated": "Verificar antes de usar",
+      "staleAlertTitle": "Sin actualizar hace {{days}} días",
+      "staleAlertBody": "Recomendamos verificar el estado kosher con la agencia certificadora antes de confiar en este producto.",
+      "outdatedAlertTitle": "Sin actualizar hace {{days}} días",
+      "outdatedAlertBody": "Confirma el estado kosher directamente con la agencia certificadora antes de usar este producto."
+    },
     "continents": {
       "northAmerica": "Norteamérica",
+      "centralAmerica": "Centroamérica",
       "southAmerica": "Sudamérica",
       "europe": "Europa",
       "asia": "Asia",
       "africa": "África",
-      "oceania": "Oceanía"
+      "oceania": "Oceanía",
+      "other": "Otros"
     },
     "filters": {
       "moreSelected": "+{{count}} más",
@@ -97,29 +111,35 @@
   "products": {
     "heroTitle": "Productos",
     "searchPlaceholder": "Buscar productos...",
-    "kashrut": "Kashrut",
-    "mehadrin": "Mehadrín",
     "category": "Categoría",
     "agency": "Agencia",
     "agencyFilterHint": "Filtrar por agencia certificadora (opcional)",
     "noCountries": "No hay países disponibles",
     "noAgencies": "No hay agencias disponibles",
+    "noMatches": "Sin coincidencias",
     "noProductsFound": "No se encontraron productos",
     "adjustSearch": "Intenta ajustar tu búsqueda o filtros",
     "filtersTitle": "Filtros",
     "apply": "Aplicar",
     "reset": "Restablecer",
-    "productCode": "Código del producto",
+    "barcode": "Código de barras",
     "categoryLabel": "Categoría",
     "country": "País",
+    "searchCountryPlaceholder": "Buscar país",
+    "searchAgencyPlaceholder": "Buscar agencia",
     "certifyingAgency": "Agencia Certificadora",
     "certificate": "Certificado",
     "viewScan": "Ver escaneo del certificado",
+    "certificateValidity": "Vigencia",
+    "certificateValidFrom": "Válido desde",
+    "certificateValidUntil": "Válido hasta",
+    "certificateExpires": "Vence el {{date}}",
     "notes": "Notas",
     "addedToList": "Agregado a la lista",
     "addToList": "Agregar a la lista",
     "productNotFound": "Producto no encontrado",
-    "failedToLoad": "Error al cargar el producto"
+    "failedToLoad": "Error al cargar el producto",
+    "noImage": "Sin imagen"
   },
   "agencies": {
     "heroTitle": "Agencias",
