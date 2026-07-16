@@ -225,7 +225,27 @@ export default function ProductDetailScreen() {
             </ThemedText>
             <Pressable onPress={handleAgencyPress}>
               <View style={styles.agencyRow}>
-                <ThemedText type="bodyBold">{product.agencyId.name}</ThemedText>
+                {product.agencyId.logoUrl ? (
+                  <Image
+                    source={{ uri: product.agencyId.logoUrl.startsWith('http') ? product.agencyId.logoUrl : `${API_BASE_URL}${product.agencyId.logoUrl}` }}
+                    style={styles.agencyLogo}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <View style={[styles.agencyLogo, styles.agencyLogoPlaceholder, { backgroundColor: theme.border }]}>
+                    <ThemedText type="bodyBold" themeColor="textMuted">
+                      {product.agencyId.name.charAt(0)}
+                    </ThemedText>
+                  </View>
+                )}
+                <View style={styles.agencyInfo}>
+                  <ThemedText type="bodyBold">{product.agencyId.name}</ThemedText>
+                  {product.agencyId.countryId && (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {product.agencyId.countryId.label}
+                    </ThemedText>
+                  )}
+                </View>
                 <SymbolView name="chevron.right" tintColor={theme.textMuted} size={16} />
               </View>
             </Pressable>
@@ -388,8 +408,21 @@ const styles = StyleSheet.create({
   },
   agencyRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.three,
+  },
+  agencyLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  agencyLogoPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  agencyInfo: {
+    flex: 1,
+    gap: Spacing.half,
   },
   certificateRow: {
     flexDirection: 'row',

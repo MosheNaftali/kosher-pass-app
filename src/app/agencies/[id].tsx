@@ -48,7 +48,7 @@ export default function AgencyDetailScreen() {
         const [agencyData, certificatesData, productsData] = await Promise.all([
           getAgencyById(id),
           getCertificates(),
-          getProducts({ agencyId: id, page: 1 }),
+          getProducts({ agencyId: [id], page: 1 }),
         ]);
 
         setAgency(agencyData);

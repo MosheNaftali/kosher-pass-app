@@ -63,12 +63,12 @@ export default function ProductsScreen() {
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCountryIds, setSelectedCountryIds] = useState<Set<number>>(new Set());
-  const [selectedAgencyId, setSelectedAgencyId] = useState<string | null>(null);
+  const [selectedAgencyIds, setSelectedAgencyIds] = useState<Set<string>>(new Set());
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
   const [pendingCountryIds, setPendingCountryIds] = useState<Set<number>>(new Set());
-  const [pendingAgencyId, setPendingAgencyId] = useState<string | null>(null);
+  const [pendingAgencyIds, setPendingAgencyIds] = useState<Set<string>>(new Set());
   const [countrySearch, setCountrySearch] = useState('');
   const [agencySearch, setAgencySearch] = useState('');
 
@@ -80,7 +80,6 @@ export default function ProductsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  console.log({ countries })
 
   const loadProducts = useCallback(
     async (pageToLoad: number, shouldRefresh = false) => {
@@ -99,22 +98,14 @@ export default function ProductsScreen() {
           page: pageToLoad,
           name: debouncedSearch,
           category: selectedCategory ?? undefined,
+          countryId: selectedCountryIds.size > 0 ? [...selectedCountryIds] : undefined,
+          agencyId: selectedAgencyIds.size > 0 ? [...selectedAgencyIds] : undefined,
         });
 
-        let filtered = response.data;
-        if (selectedCountryIds.size > 0) {
-          filtered = filtered.filter(
-            product => product.countryId !== null && selectedCountryIds.has(product.countryId.id)
-          );
-        }
-        if (selectedAgencyId) {
-          filtered = filtered.filter(product => product.agencyId?.id === selectedAgencyId);
-        }
-
         if (pageToLoad === 1 || shouldRefresh) {
-          setProducts(filtered);
+          setProducts(response.data);
         } else {
-          setProducts(prev => [...prev, ...filtered]);
+          setProducts(prev => [...prev, ...response.data]);
         }
 
         setHasMore(response.page < response.lastPage);
@@ -127,7 +118,7 @@ export default function ProductsScreen() {
         setRefreshing(false);
       }
     },
-    [debouncedSearch, selectedCategory, selectedCountryIds, selectedAgencyId, t]
+    [debouncedSearch, selectedCategory, selectedCountryIds, selectedAgencyIds, t]
   );
 
   useEffect(() => {
@@ -157,7 +148,7 @@ export default function ProductsScreen() {
   function openFilterSheet() {
     setPendingCategory(selectedCategory);
     setPendingCountryIds(new Set(selectedCountryIds));
-    setPendingAgencyId(selectedAgencyId);
+    setPendingAgencyIds(new Set(selectedAgencyIds));
     setCountrySearch('');
     setAgencySearch('');
     setFilterSheetOpen(true);
@@ -166,14 +157,14 @@ export default function ProductsScreen() {
   function applyFilters() {
     setSelectedCategory(pendingCategory);
     setSelectedCountryIds(pendingCountryIds);
-    setSelectedAgencyId(pendingAgencyId);
+    setSelectedAgencyIds(pendingAgencyIds);
     setFilterSheetOpen(false);
   }
 
   function resetFilters() {
     setPendingCategory(null);
     setPendingCountryIds(new Set());
-    setPendingAgencyId(null);
+    setPendingAgencyIds(new Set());
   }
 
   function togglePendingCountry(id: number) {
@@ -185,13 +176,22 @@ export default function ProductsScreen() {
     });
   }
 
+  function togglePendingAgency(id: string) {
+    setPendingAgencyIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (selectedCategory) count += 1;
     if (selectedCountryIds.size > 0) count += selectedCountryIds.size;
-    if (selectedAgencyId) count += 1;
+    if (selectedAgencyIds.size > 0) count += selectedAgencyIds.size;
     return count;
-  }, [selectedCategory, selectedCountryIds, selectedAgencyId]);
+  }, [selectedCategory, selectedCountryIds, selectedAgencyIds]);
 
   const filteredProducts = products;
 
@@ -274,18 +274,23 @@ export default function ProductsScreen() {
         label: t('common.filters.moreSelected', { count: hiddenCount }),
       });
     }
-    if (selectedAgencyId) {
-      const agency = allAgencies.find(a => a.id === selectedAgencyId);
-      if (agency) {
+    if (selectedAgencyIds.size > 0) {
+      const selectedAgencies = allAgencies.filter(a => selectedAgencyIds.has(a.id));
+      for (const agency of selectedAgencies) {
         chips.push({
-          id: `agency-${selectedAgencyId}`,
+          id: `agency-${agency.id}`,
           label: agency.name,
-          onRemove: () => setSelectedAgencyId(null),
+          onRemove: () =>
+            setSelectedAgencyIds(prev => {
+              const next = new Set(prev);
+              next.delete(agency.id);
+              return next;
+            }),
         });
       }
     }
     return chips;
-  }, [selectedCategory, selectedCountryIds, selectedAgencyId, allCountries, allAgencies, t]);
+  }, [selectedCategory, selectedCountryIds, selectedAgencyIds, allCountries, allAgencies, t]);
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
@@ -454,8 +459,8 @@ export default function ProductsScreen() {
                       <CategoryChip
                         key={agency.id}
                         label={agency.name}
-                        selected={pendingAgencyId === agency.id}
-                        onPress={() => setPendingAgencyId(prev => (prev === agency.id ? null : agency.id))}
+                        selected={pendingAgencyIds.has(agency.id)}
+                        onPress={() => togglePendingAgency(agency.id)}
                       />
                     ))}
                   </View>

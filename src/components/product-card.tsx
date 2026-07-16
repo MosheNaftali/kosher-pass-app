@@ -71,6 +71,15 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
             <View style={styles.freshnessOverlay} pointerEvents="none">
               <FreshnessIndicator updatedAt={product.updatedAt} />
             </View>
+            {product.agencyId && product.agencyId.logoUrl && (
+              <View style={styles.agencyOverlay} pointerEvents="none">
+                <Image
+                  source={{ uri: product.agencyId.logoUrl.startsWith('http') ? product.agencyId.logoUrl : `${API_BASE_URL}${product.agencyId.logoUrl}` }}
+                  style={styles.agencyLogo}
+                  contentFit="contain"
+                />
+              </View>
+            )}
           </ThemedView>
 
           <ThemedView style={styles.content}>
@@ -129,5 +138,22 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.two,
     backgroundColor: 'transparent',
+  },
+  agencyOverlay: {
+    position: 'absolute',
+    bottom: Spacing.two,
+    right: Spacing.two,
+    backgroundColor: 'rgb(255, 255, 255)',
+    padding: Spacing.one,
+    borderRadius: Radius.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  agencyLogo: {
+    width: 28,
+    height: 28,
   },
 });

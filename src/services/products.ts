@@ -34,11 +34,11 @@ export interface PaginatedProducts {
 
 export interface ProductFilters {
   page?: number;
-  agencyId?: string;
+  agencyId?: string[];
   name?: string;
   category?: string;
   subCategory?: string;
-  countryId?: number;
+  countryId?: number[];
 }
 
 export function buildProductsQuery(filters: ProductFilters): string {
@@ -47,8 +47,10 @@ export function buildProductsQuery(filters: ProductFilters): string {
   if (filters.page && filters.page > 1) {
     params.set('page', String(filters.page));
   }
-  if (filters.agencyId) {
-    params.set('agencyId', filters.agencyId);
+  if (filters.agencyId?.length) {
+    for (const id of filters.agencyId) {
+      params.append('agencyId', id);
+    }
   }
   if (filters.name?.trim()) {
     params.set('name', filters.name.trim());
@@ -59,8 +61,10 @@ export function buildProductsQuery(filters: ProductFilters): string {
   if (filters.subCategory) {
     params.set('subCategory', filters.subCategory);
   }
-  if (filters.countryId !== undefined) {
-    params.set('countryId', String(filters.countryId));
+  if (filters.countryId?.length) {
+    for (const id of filters.countryId) {
+      params.append('countryId', String(id));
+    }
   }
 
   const query = params.toString();
