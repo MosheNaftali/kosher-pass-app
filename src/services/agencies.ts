@@ -3,7 +3,7 @@ import { apiGet } from './api';
 export interface Agency {
   id: string;
   name: string;
-  countryId: { id: number; label: string } | null;
+  countryId: { id: number; code: string | null } | null;
   websiteUrl: string | null;
   logoUrl: string | null;
   contactInfo: string | null;

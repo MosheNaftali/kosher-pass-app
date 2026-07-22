@@ -26,6 +26,7 @@ import { API_BASE_URL } from '@/services/api';
 import { getAgencyById, type Agency } from '@/services/agencies';
 import { getCertificates, type Certificate } from '@/services/certificates';
 import { getProducts, type Product } from '@/services/products';
+import { getCountryTranslationKey } from '@/utils/countries';
 
 export default function AgencyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -116,7 +117,7 @@ export default function AgencyDetailScreen() {
             <ThemedText type="h2">{agency.name}</ThemedText>
             {agency.countryId && (
               <ThemedText type="body" themeColor="textSecondary">
-                {agency.countryId.label}
+                {t(getCountryTranslationKey(agency.countryId.code), (agency.countryId.code ?? '').toUpperCase())}
               </ThemedText>
             )}
           </View>

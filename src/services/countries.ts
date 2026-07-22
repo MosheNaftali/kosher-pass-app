@@ -3,7 +3,7 @@ import type { Agency } from './agencies';
 
 export interface CountryWithAgencies {
   id: number;
-  label: string;
+  code: string | null;
   continent: string;
   agencies: Pick<Agency, 'id' | 'name'>[];
 }

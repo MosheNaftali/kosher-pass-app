@@ -1,6 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
@@ -9,6 +10,7 @@ import { API_BASE_URL } from '@/services/api';
 import type { Agency } from '@/services/agencies';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { getCountryTranslationKey } from '@/utils/countries';
 
 interface AgencyRowProps {
   agency: Agency;
@@ -26,6 +28,7 @@ export function AgencyRow({
   onToggleFavorite,
 }: AgencyRowProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const logoSource = agency.logoUrl
     ? agency.logoUrl.startsWith('http')
@@ -54,7 +57,7 @@ export function AgencyRow({
           </ThemedText>
           {agency.countryId && (
             <ThemedText type="small" themeColor="textSecondary">
-              {agency.countryId.label}
+              {t(getCountryTranslationKey(agency.countryId.code), (agency.countryId.code ?? '').toUpperCase())}
             </ThemedText>
           )}
         </ThemedView>

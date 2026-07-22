@@ -30,6 +30,7 @@ import { getProducts, type Product } from '@/services/products';
 import { getCountriesWithAgencies, type CountryWithAgencies } from '@/services/countries';
 import {
   CONTINENT_TRANSLATION_KEYS,
+  getCountryTranslationKey,
   groupCountriesByContinent,
   type Continent,
   type ContinentGroup,
@@ -63,14 +64,11 @@ export default function ProductsScreen() {
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCountryIds, setSelectedCountryIds] = useState<Set<number>>(new Set());
-  const [selectedAgencyIds, setSelectedAgencyIds] = useState<Set<string>>(new Set());
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
   const [pendingCountryIds, setPendingCountryIds] = useState<Set<number>>(new Set());
-  const [pendingAgencyIds, setPendingAgencyIds] = useState<Set<string>>(new Set());
   const [countrySearch, setCountrySearch] = useState('');
-  const [agencySearch, setAgencySearch] = useState('');
 
   const [products, setProducts] = useState<Product[]>([]);
   const [countries, setCountries] = useState<CountryWithAgencies[]>([]);
@@ -99,7 +97,6 @@ export default function ProductsScreen() {
           name: debouncedSearch,
           category: selectedCategory ?? undefined,
           countryId: selectedCountryIds.size > 0 ? [...selectedCountryIds] : undefined,
-          agencyId: selectedAgencyIds.size > 0 ? [...selectedAgencyIds] : undefined,
         });
 
         if (pageToLoad === 1 || shouldRefresh) {
@@ -118,7 +115,7 @@ export default function ProductsScreen() {
         setRefreshing(false);
       }
     },
-    [debouncedSearch, selectedCategory, selectedCountryIds, selectedAgencyIds, t]
+    [debouncedSearch, selectedCategory, selectedCountryIds, t]
   );
 
   useEffect(() => {
@@ -148,23 +145,19 @@ export default function ProductsScreen() {
   function openFilterSheet() {
     setPendingCategory(selectedCategory);
     setPendingCountryIds(new Set(selectedCountryIds));
-    setPendingAgencyIds(new Set(selectedAgencyIds));
     setCountrySearch('');
-    setAgencySearch('');
     setFilterSheetOpen(true);
   }
 
   function applyFilters() {
     setSelectedCategory(pendingCategory);
     setSelectedCountryIds(pendingCountryIds);
-    setSelectedAgencyIds(pendingAgencyIds);
     setFilterSheetOpen(false);
   }
 
   function resetFilters() {
     setPendingCategory(null);
     setPendingCountryIds(new Set());
-    setPendingAgencyIds(new Set());
   }
 
   function togglePendingCountry(id: number) {
@@ -176,36 +169,31 @@ export default function ProductsScreen() {
     });
   }
 
-  function togglePendingAgency(id: string) {
-    setPendingAgencyIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (selectedCategory) count += 1;
     if (selectedCountryIds.size > 0) count += selectedCountryIds.size;
-    if (selectedAgencyIds.size > 0) count += selectedAgencyIds.size;
     return count;
-  }, [selectedCategory, selectedCountryIds, selectedAgencyIds]);
+  }, [selectedCategory, selectedCountryIds]);
 
   const filteredProducts = products;
 
   const allCountries = useMemo<CountryOption[]>(
     () =>
       countries
-        .map(c => ({ id: c.id, label: c.label, continent: c.continent as Continent }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+        .map(c => ({
+          id: c.id,
+          code: c.code,
+          continent: c.continent as Continent,
+        }))
+        .sort((a, b) => (a.code ?? '').localeCompare(b.code ?? '')),
     [countries]
   );
 
-  const allAgencies = useMemo(
-    () => countries.flatMap(c => c.agencies),
-    [countries]
+  const countryDisplayName = useCallback(
+    (country: CountryOption) =>
+      t(getCountryTranslationKey(country.code), (country.code ?? '').toUpperCase()),
+    [t]
   );
 
   const continentGroups = useMemo<ContinentGroup[]>(
@@ -219,27 +207,13 @@ export default function ProductsScreen() {
     return continentGroups
       .map(group => ({
         ...group,
-        countries: group.countries.filter(c =>
-          c.label.toLowerCase().includes(query)
-        ),
+        countries: group.countries.filter(c => {
+          const displayName = t(getCountryTranslationKey(c.code), (c.code ?? '').toUpperCase());
+          return displayName.toLowerCase().includes(query);
+        }),
       }))
       .filter(group => group.countries.length > 0);
-  }, [continentGroups, countrySearch]);
-
-  const availableAgencies = useMemo(() => {
-    if (pendingCountryIds.size === 0) return allAgencies;
-    return countries
-      .filter(c => pendingCountryIds.has(c.id))
-      .flatMap(c => c.agencies);
-  }, [countries, allAgencies, pendingCountryIds]);
-
-  const filteredAvailableAgencies = useMemo(() => {
-    const query = agencySearch.trim().toLowerCase();
-    if (!query) return availableAgencies;
-    return availableAgencies.filter(a =>
-      a.name.toLowerCase().includes(query)
-    );
-  }, [availableAgencies, agencySearch]);
+  }, [continentGroups, countrySearch, t]);
 
   const activeChips = useMemo(() => {
     const chips: { id: string; label: string; onRemove?: () => void; isMore?: boolean }[] = [];
@@ -259,7 +233,7 @@ export default function ProductsScreen() {
     for (const country of visibleCountries) {
       chips.push({
         id: `country-${country.id}`,
-        label: country.label,
+        label: countryDisplayName(country),
         onRemove: () =>
           setSelectedCountryIds(prev => {
             const next = new Set(prev);
@@ -274,23 +248,8 @@ export default function ProductsScreen() {
         label: t('common.filters.moreSelected', { count: hiddenCount }),
       });
     }
-    if (selectedAgencyIds.size > 0) {
-      const selectedAgencies = allAgencies.filter(a => selectedAgencyIds.has(a.id));
-      for (const agency of selectedAgencies) {
-        chips.push({
-          id: `agency-${agency.id}`,
-          label: agency.name,
-          onRemove: () =>
-            setSelectedAgencyIds(prev => {
-              const next = new Set(prev);
-              next.delete(agency.id);
-              return next;
-            }),
-        });
-      }
-    }
     return chips;
-  }, [selectedCategory, selectedCountryIds, selectedAgencyIds, allCountries, allAgencies, t]);
+  }, [selectedCategory, selectedCountryIds, allCountries, t, countryDisplayName]);
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
@@ -432,35 +391,10 @@ export default function ProductsScreen() {
                         selectedIds={pendingCountryIds}
                         onToggle={togglePendingCountry}
                         t={t}
+                        getCountryDisplayName={countryDisplayName}
                         accent={theme.accent}
                         textMuted={theme.textMuted}
                         border={theme.borderSubtle}
-                      />
-                    ))}
-                  </View>
-                )}
-              </FilterSection>
-
-              <FilterSection title={t('products.agency')}>
-                <View style={styles.sectionSearch}>
-                  <SearchBar
-                    value={agencySearch}
-                    onChangeText={setAgencySearch}
-                    placeholder={t('products.searchAgencyPlaceholder')}
-                  />
-                </View>
-                {filteredAvailableAgencies.length === 0 ? (
-                  <ThemedText type="small" themeColor="textSecondary" style={styles.sectionEmpty}>
-                    {t('products.noMatches')}
-                  </ThemedText>
-                ) : (
-                  <View style={styles.chipWrap}>
-                    {filteredAvailableAgencies.map(agency => (
-                      <CategoryChip
-                        key={agency.id}
-                        label={agency.name}
-                        selected={pendingAgencyIds.has(agency.id)}
-                        onPress={() => togglePendingAgency(agency.id)}
                       />
                     ))}
                   </View>
@@ -579,12 +513,13 @@ interface ContinentRowProps {
   selectedIds: Set<number>;
   onToggle: (id: number) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
+  getCountryDisplayName: (country: CountryOption) => string;
   accent: string;
   textMuted: string;
   border: string;
 }
 
-function ContinentRow({ group, selectedIds, onToggle, t, accent, textMuted, border }: ContinentRowProps) {
+function ContinentRow({ group, selectedIds, onToggle, t, getCountryDisplayName, accent, textMuted, border }: ContinentRowProps) {
   const [open, setOpen] = useState(false);
   const selectedCount = group.countries.filter(c => selectedIds.has(c.id)).length;
   const hasSelection = selectedCount > 0;
@@ -625,7 +560,7 @@ function ContinentRow({ group, selectedIds, onToggle, t, accent, textMuted, bord
           {group.countries.map(country => (
             <CategoryChip
               key={country.id}
-              label={country.label}
+              label={getCountryDisplayName(country)}
               selected={selectedIds.has(country.id)}
               onPress={() => onToggle(country.id)}
             />

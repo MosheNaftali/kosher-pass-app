@@ -15,7 +15,7 @@ export interface Product {
   externalId: string | null;
   kashrutLevel: KashrutLevel;
   isMehadrin: boolean;
-  countryId: { id: number; label: string } | null;
+  countryId: { id: number; code: string | null } | null;
   agencyId: Agency | null;
   certificateId: Certificate | null;
   active: boolean;
@@ -34,11 +34,11 @@ export interface PaginatedProducts {
 
 export interface ProductFilters {
   page?: number;
-  agencyId?: string[];
   name?: string;
   category?: string;
   subCategory?: string;
   countryId?: number[];
+  agencyId?: string[];
 }
 
 export function buildProductsQuery(filters: ProductFilters): string {

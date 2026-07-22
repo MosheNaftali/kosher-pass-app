@@ -478,7 +478,8 @@ Key naming convention: dot-notation paths mirroring UI hierarchy (`scan.cameraPe
 - **`useTranslation()` from `react-i18next`** — use in every component/screen that has user-facing text
 - **`t('key', { var: value })` for interpolation** — never concatenate translated strings with variables directly
 - **Never hardcode user-facing strings** — all strings must go through `t()` or come from the API
-- **Proper nouns (names, brands, country labels) come from the API** — do not translate them
+- **Proper nouns (names, brands, agency labels) come from the API** — do not translate them
+- **Country display is code-based** — `CountryEntity.code` is an ISO 3166-1 alpha-2 identifier (e.g. `mx`, `pa`). Resolve it to a translated name with `getCountryTranslationKey(code)` + `t(key, code?.toUpperCase() ?? '')` (the second arg is a fallback for rows whose `code` is `null` or the i18n key is missing). See the "Pattern: country display" section below.
 - **Locale is detected from device** on first launch via `expo-localization`, then persisted in AsyncStorage (`@kosher-pass:locale`)
 - **Fallback is always English** — missing keys in a locale fall through to `en`
 - **`I18nextProvider` wraps the root** in `_layout.tsx`, outside `ThemeProvider` — i18n is available to all components
@@ -524,6 +525,29 @@ const CATEGORIES = [
 ))}
 ```
 
+### Pattern: country display (code → translated name)
+
+The server stores a stable ISO 3166-1 alpha-2 code on every country (e.g. `mx`, `pa`, `us`). The display name is **not** sent by the API — the app resolves the code through i18n. Translations live under `common.countries.<code>` in `src/i18n/resources/<locale>/translation.json` for every supported code. To keep this DRY, the helper `getCountryTranslationKey(code)` in `@/utils/countries` returns the i18n key for a given code.
+
+1. **Always resolve through `t()`** — the `CountryOption` / `countryId` payload only carries the ISO `code` (the server does not return a `label`). The pattern is `t(getCountryTranslationKey(country.code), (country.code ?? '').toUpperCase())`. The second argument to `t()` is the fallback shown when the code is `null` (rows not yet backfilled) or the i18n key is missing (a new code was added but a translation was not). The upper-cased code (e.g. `MX`, `PA`) is a stable, locale-independent fallback — for a friendlier one, add a `common.countries.<code>` entry in both locales.
+2. **Search in the active locale** — when implementing a country search input (filter sheet, etc.), compare the query against the *translated* name, not against the raw `code`. Otherwise Spanish users typing "méjico" would not match "México" / `mx`. Compute the translated name for every country up front and match against it.
+3. **Sort by the translated name** — when ordering countries inside a continent or in the active filter chips, sort by the translated display string so that "México" sorts next to "México" and "Estados Unidos" sorts under "E" in Spanish. (The pure helper `groupCountriesByContinent` falls back to sorting by `code` because it has no access to `t`; re-sort in the component if you need locale-aware order.)
+4. **Adding a new country** — insert the row in the DB with the appropriate `code` (ISO 3166-1 alpha-2), add `common.countries.<code>` to **both** `en/translation.json` and `es/translation.json` (and any future locale), and the helper picks it up automatically.
+
+```tsx
+import { getCountryTranslationKey } from '@/utils/countries';
+import { useTranslation } from 'react-i18next';
+
+function CountryRow({ country }: { country: CountryOption }) {
+  const { t } = useTranslation();
+  return (
+    <ThemedText>
+      {t(getCountryTranslationKey(country.code), (country.code ?? '').toUpperCase())}
+    </ThemedText>
+  );
+}
+```
+
 ### Pattern: filter bottom sheet (modal)
 
 When a screen has many filters (Kashrut, Mehadrin, Category, Agency, etc.), do **not** render all of them inline — they take too much vertical space. Instead:
@@ -546,18 +570,18 @@ Never render 4+ horizontal-scroll filter rows inline on a list screen.
 
 When a screen needs a country filter (products, agencies, scan results, etc.), follow the two-level Country + Agency pattern:
 
-1. **Single data source.** Call `getCountriesWithAgencies()` from `@/services/countries` once. This returns `[{ id, label, agencies: [{ id, name }] }]` — countries with their active agencies bundled. Derive both the country list and the agency list from this single response.
+1. **Single data source.** Call `getCountriesWithAgencies()` from `@/services/countries` once. This returns `[{ id, code, continent, agencies: [{ id, name }] }]` — countries with their active agencies bundled. `code` is the ISO 3166-1 alpha-2 identifier used to resolve a translated display name via `getCountryTranslationKey()`; the API does not return a `label`, so the only fallback when `code` is `null` or the i18n key is missing is the upper-cased `code` itself. Derive both the country list and the agency list from this single response.
 2. **Country first, Agency optional.** Render the "Country" section above the "Agency" section. Country is primary; Agency is a secondary refinement, scoped to the selected countries.
 3. **Group countries by continent** using `groupCountriesByContinent()` from `@/utils/countries`. The grouping is client-side (the `Country` entity has no continent column) and lives in a small lookup table; anything unmapped is filtered out. Continent labels go through `common.continents.<key>` translation keys.
 4. **Inline chevron row per continent** (do **not** use the generic `Collapsible` here — it doesn't match the bottom-sheet density). Each row has:
    - Continent label + a `selectedCount/total` badge (accent when selected, muted otherwise)
    - A `chevron.down` icon that rotates 180° on expand
-   - A `CategoryChip` wrap of countries when open
+   - A `CategoryChip` wrap of countries when open — labels are the **translated** country name (`t(getCountryTranslationKey(country.code), (country.code ?? '').toUpperCase())`), not the raw `code`
 5. **Auto-expand the rows that already have a pending selection** so users see what they picked without hunting. The auto-expand must only fire once per row per sheet open — use a `useRef` flag to guard it.
 6. **Multi-select countries.** State is `Set<number>` of country IDs, mirrored as `pendingCountryIds` inside the sheet. Toggling a country creates a new `Set` so React detects the change.
 7. **Scope the Agency list to the pending country selection.** Compute `availableAgencies` from `pendingCountryIds` (not `selectedCountryIds`) so the sheet reflects the staged state. When no countries are pending, show all agencies.
-8. **Search inputs in each section.** Add a `SearchBar` at the top of both the Country and Agency sections. Country search filters the continent groups (hide empty groups). Agency search filters the agency chips. Use local state (`countrySearch`, `agencySearch`) that resets when the sheet opens.
-9. **Active filter chips row.** Wrap the horizontal `FlatList` in a `View` with `paddingHorizontal: Spacing.four` (do **not** put `paddingHorizontal` on `contentContainerStyle` — it has been observed to be ignored on some RN versions, causing chips to bleed off the left edge). Keep `paddingTop` and `gap` on `contentContainerStyle` so the scroll content is correct.
+8. **Search inputs in each section.** Add a `SearchBar` at the top of both the Country and Agency sections. Country search filters the continent groups (hide empty groups). Agency search filters the agency chips. **Country search must match against the translated name** (call `t(getCountryTranslationKey(country.code), (country.code ?? '').toUpperCase())` first and compare), not against the raw `code`, so users can search in their own language. Use local state (`countrySearch`, `agencySearch`) that resets when the sheet opens.
+9. **Active filter chips row.** Wrap the horizontal `FlatList` in a `View` with `paddingHorizontal: Spacing.four` (do **not** put `paddingHorizontal` on `contentContainerStyle` — it has been observed to be ignored on some RN versions, causing chips to bleed off the left edge). Keep `paddingTop` and `gap` on `contentContainerStyle` so the scroll content is correct. Country chip labels use the translated name.
 10. **Cap the active country chips at 6**, then add a static `+N more` chip that opens the filter sheet (use `common.filters.moreSelected` for the label). Chips with a defined `onRemove` show an `xmark` glyph; the `+N more` chip is tap-only.
 
 ### Pattern: active filter chip row

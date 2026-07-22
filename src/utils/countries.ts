@@ -29,13 +29,25 @@ export const CONTINENT_TRANSLATION_KEYS: Record<Continent, string> = {
 
 export interface CountryOption {
   id: number;
-  label: string;
+  code: string | null;
   continent: Continent;
 }
 
 export interface ContinentGroup {
   continent: Continent;
   countries: CountryOption[];
+}
+
+/**
+ * Returns the i18n key for a given ISO 3166-1 alpha-2 country code.
+ * Callers pass the result to `t()` so the displayed name follows the
+ * active locale. If the code is unknown or null, the returned key resolves
+ * to a non-existent i18n path and the caller falls back to the raw
+ * upper-cased code via `t(key, fallback)`.
+ */
+export function getCountryTranslationKey(code: string | null | undefined): string {
+  if (!code) return `common.countries.`;
+  return `common.countries.${code.toLowerCase()}`;
 }
 
 export function groupCountriesByContinent(
@@ -53,6 +65,6 @@ export function groupCountriesByContinent(
     countries: buckets
       .get(continent)!
       .slice()
-      .sort((a, b) => a.label.localeCompare(b.label)),
+      .sort((a, b) => (a.code ?? '').localeCompare(b.code ?? '')),
   }));
 }

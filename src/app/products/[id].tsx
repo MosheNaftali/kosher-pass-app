@@ -25,6 +25,7 @@ import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
 import { API_BASE_URL } from '@/services/api';
 import { getProductById, type Product } from '@/services/products';
+import { getCountryTranslationKey } from '@/utils/countries';
 import LogoImage from '@/assets/images/logo.png';
 
 export default function ProductDetailScreen() {
@@ -203,7 +204,9 @@ export default function ProductDetailScreen() {
               <ThemedText type="small" themeColor="textSecondary">
                 {t('products.country')}
               </ThemedText>
-              <ThemedText type="smallMedium">{product.countryId.label}</ThemedText>
+              <ThemedText type="smallMedium">
+                {t(getCountryTranslationKey(product.countryId.code), (product.countryId.code ?? '').toUpperCase())}
+              </ThemedText>
             </View>
           )}
 
@@ -242,7 +245,7 @@ export default function ProductDetailScreen() {
                   <ThemedText type="bodyBold">{product.agencyId.name}</ThemedText>
                   {product.agencyId.countryId && (
                     <ThemedText type="small" themeColor="textSecondary">
-                      {product.agencyId.countryId.label}
+                      {t(getCountryTranslationKey(product.agencyId.countryId.code), (product.agencyId.countryId.code ?? '').toUpperCase())}
                     </ThemedText>
                   )}
                 </View>
