@@ -12,9 +12,10 @@ export interface SearchBarProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  onSubmit?: () => void;
 }
 
-export function SearchBar({ value, onChangeText, placeholder, autoFocus }: SearchBarProps) {
+export function SearchBar({ value, onChangeText, placeholder, autoFocus, onSubmit }: SearchBarProps) {
   const theme = useTheme();
   const { t } = useTranslation();
 
@@ -34,6 +35,8 @@ export function SearchBar({ value, onChangeText, placeholder, autoFocus }: Searc
         onChangeText={onChangeText}
         autoFocus={autoFocus}
         clearButtonMode="while-editing"
+        returnKeyType="search"
+        onSubmitEditing={onSubmit}
       />
       {Platform.OS !== 'ios' && value.length > 0 && (
         <Pressable onPress={() => onChangeText('')} hitSlop={8}>

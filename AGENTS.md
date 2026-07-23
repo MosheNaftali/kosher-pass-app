@@ -42,6 +42,8 @@ Part of the `final_code/` monorepo alongside the NestJS backend packages (`api/`
 | `expo-constants` | `~57.0.3` | Build constants |
 | `expo-camera` | `~57.0.1` | Camera + barcode scanning |
 | `expo-haptics` | `~57.0.0` | Haptic feedback |
+| `react-native-google-mobile-ads` | `16.4.0` | AdMob banner ads (native only — requires a dev build, no Expo Go) |
+| `expo-tracking-transparency` | `~57.0.1` | iOS App Tracking Transparency prompt (personalized ads consent) |
 | `@react-native-async-storage/async-storage` | `2.2.0` | Local persistence for favorites/shopping list |
 | `react-native-worklets` | `0.10.0` | Worklet threading for Reanimated |
 | `react-native-web` | `~0.21.0` | Web target |
@@ -89,7 +91,9 @@ app/
     ├── components/                 # Reusable UI components
     │   ├── ui/                     # Generic design-system components
     │   │   └── collapsible.tsx     # Animated accordion with chevron
-    │   ├── app-tabs.tsx            # Custom bottom tab bar with elevated Scan button
+    │   ├── app-tabs.tsx            # Custom bottom tab bar with elevated Scan button; hosts the AdBanner
+    │   ├── ad-banner.tsx           # Anchored AdMob banner (native); hidden on /scan
+    │   ├── ad-banner.web.tsx       # Web stub for AdBanner (renders nothing)
     │   ├── external-link.tsx       # Link that opens in in-app browser on native
     │   ├── themed-text.tsx         # Theme-aware typography component
     │   ├── themed-view.tsx         # Theme-aware container component
@@ -344,7 +348,8 @@ All design tokens live here:
 | `Spacing` | Numeric spacing scale (half through ten) |
 | `Radius` | Border radius tokens |
 | `Shadows` | Elevation shadow styles |
-| `BottomTabInset` | Platform-specific bottom inset |
+| `BottomTabInset` | Bottom padding screens must reserve (tab bar height + `AdBannerHeight` on native) |
+| `AdBannerHeight` | Height reserved for the anchored AdMob banner (50 native, 0 web) |
 | `MaxContentWidth` | Max width for content (800px) |
 
 ### Colors
@@ -865,6 +870,27 @@ Products expose an `updatedAt` ISO string. The longer a product goes without an 
 - `outdatedAlertTitle` / `outdatedAlertBody` — banner copy (title interpolates `{{days}}`)
 
 **When to add a new tier:** Update both `FRESHNESS_THRESHOLDS` and the `tierColor` / `tierIcon` / `tierTranslationKey` maps in the relevant components in lockstep. Then add the matching translation keys to `en` and `es`.
+
+### Pattern: ads (AdMob anchored banner)
+
+The app shows a single AdMob banner anchored directly above the bottom tab bar, visible on every tab **except `/scan`** (the camera UI owns the full screen there).
+
+**Architecture:**
+
+- `src/components/ad-banner.tsx` — native implementation. Renders a `BannerAd` (`react-native-google-mobile-ads`) at the fixed 320x50 `BannerAdSize.BANNER`, absolutely positioned above the tab bar. On `onAdFailedToLoad` it renders nothing.
+- `src/components/ad-banner.web.tsx` — web stub returning `null`. `react-native-google-mobile-ads` is a native-only module; the platform-extension resolution keeps it out of the web bundle.
+- `src/components/app-tabs.tsx` — hosts the banner: `<AdBanner />` rendered as a sibling of `Tabs`, skipped when `useSegments()[0] === 'scan'`.
+- `Layout.adBannerHeight` (`src/constants/theme.ts`) — 50 on iOS/Android, 0 on web. `Layout.bottomTabInset` already **includes** it, so every screen that pads `Layout.bottomTabInset + Spacing.six` clears the banner automatically.
+
+**Configuration (`app.json`):**
+
+- Plugin: `["react-native-google-mobile-ads", { "androidAppId": "...", "iosAppId": "..." }]`. **The plugin props are camelCase** (`androidAppId` / `iosAppId`) — the snake_case keys from older docs are silently ignored and the build warns "No 'androidAppId' was provided". Google sample app ids are committed as placeholders; replace them with the real AdMob app ids before release.
+- `expo.extra.admobBannerUnitIdIos` / `expo.extra.admobBannerUnitIdAndroid` — release banner unit ids, read via `Constants.expoConfig.extra`. Empty string → banner hidden in release builds. **`__DEV__` always uses `TestIds.BANNER`** regardless of config.
+- `expo-tracking-transparency` plugin sets `NSUserTrackingUsageDescription`; the banner requests ATT on mount and passes `requestNonPersonalizedAdsOnly` when consent is denied.
+
+**Hard requirement — dev builds only:** AdMob is native code. After `expo prebuild` the app no longer runs in **Expo Go**. Use `pnpm ios` / `pnpm android` (`expo run:*`) or an EAS development build. The web target is unaffected (stub).
+
+**Why fixed 320x50 instead of `ANCHORED_ADAPTIVE_BANNER`:** adaptive banners have a device-dependent height, which would force every screen's static `StyleSheet` bottom padding through a runtime context. The fixed size keeps the layout deterministic — one constant in `theme.ts`, zero per-screen plumbing. To upgrade later: measure the rendered height via `onLayout`, expose it through a provider, and replace the constant.
 
 ---
 

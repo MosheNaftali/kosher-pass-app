@@ -1,10 +1,11 @@
-import { type Href } from 'expo-router';
+import { type Href, useSegments } from 'expo-router';
 import { Tabs, TabList, TabSlot, TabTrigger, type TabTriggerSlotProps } from 'expo-router/ui';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 
+import { AdBanner } from './ad-banner';
 import { ThemedText } from './themed-text';
 
 import { Radius, Shadows, Spacing } from '@/constants/theme';
@@ -35,26 +36,32 @@ function useTabConfig() {
 export default function AppTabs() {
   const tabs = useTabConfig();
   const theme = useTheme();
+  const segments = useSegments();
+  // The camera UI on /scan owns the full screen — no ad banner there.
+  const showAdBanner = segments[0] !== 'scan';
 
   return (
-    <Tabs>
-      <TabSlot />
-      <TabList
-        style={[
-          styles.tabList,
-          { backgroundColor: theme.surface, borderTopColor: theme.borderSubtle },
-        ]}>
-        {tabs.map(tab =>
-          tab.isScan ? (
-            <ScanTabTrigger key={tab.name} tab={tab} />
-          ) : (
-            <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
-              <TabButton icon={tab.icon} label={tab.label} />
-            </TabTrigger>
-          )
-        )}
-      </TabList>
-    </Tabs>
+    <View style={styles.root}>
+      <Tabs>
+        <TabSlot />
+        <TabList
+          style={[
+            styles.tabList,
+            { backgroundColor: theme.surface, borderTopColor: theme.borderSubtle },
+          ]}>
+          {tabs.map(tab =>
+            tab.isScan ? (
+              <ScanTabTrigger key={tab.name} tab={tab} />
+            ) : (
+              <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
+                <TabButton icon={tab.icon} label={tab.label} />
+              </TabTrigger>
+            )
+          )}
+        </TabList>
+      </Tabs>
+      {showAdBanner && <AdBanner />}
+    </View>
   );
 }
 
@@ -129,6 +136,9 @@ function ScanTabTrigger({ tab }: { tab: TabConfig }) {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   tabList: {
     position: 'absolute',
     bottom: 0,

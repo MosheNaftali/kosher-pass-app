@@ -271,6 +271,8 @@
     "certificates": "Certificates",
     "certificateFallback": "Certificate #{{id}}",
     "productsFrom": "Products from {{name}}",
+    "searchProductsPlaceholder": "Search products from this agency...",
+    "noProductsFound": "No products found",
     "noProductsYet": "No products yet",
     "agencyNotFound": "Agency not found",
     "failedToLoad": "Failed to load agency"

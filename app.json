@@ -39,11 +39,29 @@
           "cameraPermission": "Allow Kosher Pass to access your camera to scan product barcodes."
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Allow Kosher Pass to show you personalized ads."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "apiUrl": "http://localhost:3000",
+      "admobBannerUnitIdIos": "",
+      "admobBannerUnitIdAndroid": ""
     }
   }
 }

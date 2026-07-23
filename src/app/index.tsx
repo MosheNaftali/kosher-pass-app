@@ -66,6 +66,13 @@ export default function DiscoverScreen() {
     router.push(`/products/${product.id}`);
   }
 
+  function handleSearchSubmit() {
+    const query = searchQuery.trim();
+    if (!query) return;
+    setSearchQuery('');
+    router.push({ pathname: '/products', params: { name: query } });
+  }
+
   function handleSeeAllAlerts() {
     router.push('/alerts');
   }
@@ -108,6 +115,7 @@ export default function DiscoverScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder={t('discover.searchPlaceholder')}
+            onSubmit={handleSearchSubmit}
           />
         </View>
 

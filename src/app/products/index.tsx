@@ -122,6 +122,14 @@ export default function ProductsScreen() {
     loadProducts(1);
   }, [loadProducts]);
 
+  // Sync the `name` route param into the search field when another screen
+  // (Discover search, barcode scan) navigates here while this tab is mounted.
+  useEffect(() => {
+    if (params.name !== undefined) {
+      setSearchQuery(params.name);
+    }
+  }, [params.name]);
+
   useEffect(() => {
     getCountriesWithAgencies()
       .then(setCountries)

@@ -161,11 +161,18 @@ export const Shadows = {
   },
 };
 
+// Height reserved for the anchored AdMob banner (standard 320x50) on native
+// platforms. The web build renders an AdBanner stub, so it reserves nothing.
+const adBannerHeight = Platform.select({ ios: 50, android: 50, default: 0 }) ?? 0;
+
 export const Layout = {
-  bottomTabInset: Platform.select({ ios: 80, android: 90 }) ?? 0,
+  // Bottom padding screens must reserve: tab bar height + ad banner height.
+  bottomTabInset: (Platform.select({ ios: 80, android: 90 }) ?? 0) + adBannerHeight,
+  adBannerHeight,
   maxContentWidth: 800,
   screenPadding: Spacing.four,
 } as const;
 
 export const BottomTabInset = Layout.bottomTabInset;
+export const AdBannerHeight = Layout.adBannerHeight;
 export const MaxContentWidth = Layout.maxContentWidth;

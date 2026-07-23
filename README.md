@@ -29,23 +29,39 @@ Part of the `final_code/` monorepo alongside the NestJS backend (`api/`, `worker
 
 3. Start the app
 
+   **Native (iOS/Android) requires a development build** — the AdMob module (`react-native-google-mobile-ads`) is native code, so the app does **not** run in Expo Go:
+
    ```bash
-   pnpm start
+   pnpm ios        # builds and launches on the iOS simulator (expo run:ios)
+   pnpm android    # builds and launches on the Android emulator (expo run:android)
    ```
 
-   This launches the Expo dev server. From the output you can:
-   - Press `i` to open on iOS simulator
-   - Press `a` to open on Android emulator
-   - Press `w` to open in the browser
-   - Scan the QR code with [Expo Go](https://expo.dev/go)
+   The first build compiles the native project and can take several minutes. Re-run `npx expo prebuild` whenever `app.json` plugins change.
+
+   **Web** works without a dev build (ads are stubbed out):
+
+   ```bash
+   pnpm web
+   ```
+
+## Ads (AdMob)
+
+An anchored banner shows above the tab bar on all tabs except Scan.
+
+- Dev builds always serve Google's test banner (`TestIds.BANNER`).
+- Before release, replace the placeholder ids with your AdMob account values:
+  - `app.json` → `plugins["react-native-google-mobile-ads"]`: `androidAppId`, `iosAppId` (app ids, `ca-app-pub-…~…`)
+  - `app.json` → `extra`: `admobBannerUnitIdIos`, `admobBannerUnitIdAndroid` (banner unit ids, `ca-app-pub-…/…`). Empty = banner hidden in release builds.
+- iOS shows the App Tracking Transparency prompt on first launch; denying it falls back to non-personalized ads.
+
 
 ## Scripts
 
 | Command | Description |
 |---|---|
-| `pnpm start` | Launch Expo dev server |
-| `pnpm ios` | Start with iOS target |
-| `pnpm android` | Start with Android target |
+| `pnpm start` | Launch Expo dev server (use with a dev build, not Expo Go) |
+| `pnpm ios` | Build and run on iOS simulator (expo run:ios) |
+| `pnpm android` | Build and run on Android emulator (expo run:android) |
 | `pnpm web` | Start with web target |
 | `pnpm lint` | Run ESLint via `expo lint` |
 
@@ -80,6 +96,8 @@ src/
 | @expo/ui | 57 |
 | expo-camera | 57 |
 | expo-haptics | 57 |
+| react-native-google-mobile-ads | 16.4 |
+| expo-tracking-transparency | 57 |
 | @react-native-async-storage/async-storage | 2.2.0 |
 
 ## Configuration
