@@ -60,7 +60,7 @@ export default function AppTabs() {
           )}
         </TabList>
       </Tabs>
-      {showAdBanner && <AdBanner />}
+      {/* {showAdBanner && <AdBanner />} */}
     </View>
   );
 }

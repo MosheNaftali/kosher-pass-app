@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "com.moshenaftali.kosher-pass"
+      "bundleIdentifier": "com.kosherpass.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.moshenaftali.kosherpass"
+      "package": "com.kosherpass.app"
     },
     "plugins": [
       "expo-router",
@@ -40,13 +40,13 @@
         }
       ],
       "expo-localization",
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
-        }
-      ],
+      // [
+      //   "react-native-google-mobile-ads",
+      //   {
+      //     "androidAppId": "ca-app-pub-6667578336189477~6842660386",
+      //     "iosAppId": "ca-app-pub-6667578336189477~9350188040"
+      //   }
+      // ],
       [
         "expo-tracking-transparency",
         {
