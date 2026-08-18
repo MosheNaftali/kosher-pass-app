@@ -1,6 +1,6 @@
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -22,10 +22,31 @@ import { SectionHeader } from '@/components/section-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Layout, Radius, Spacing } from '@/constants/theme';
+import type { ThemeColor } from '@/constants/theme';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
-import { getAgencies, type Agency } from '@/services/agencies';
-import { getProducts, type Product } from '@/services/products';
+import {
+  flattenProductPages,
+  useCertificatesQuery,
+  useFavoriteAgenciesQuery,
+  useProductsQuery,
+} from '@/hooks/use-queries';
+import type { Certificate } from '@/services/certificates';
+import type { Product } from '@/services/products';
+import { buildAlerts, type AlertSeverity } from '@/utils/alerts';
+import { staggerDelay } from '@/utils/animation';
+
+const ALERT_SEVERITY_COLOR: Record<AlertSeverity, ThemeColor> = {
+  critical: 'error',
+  warning: 'warning',
+  info: 'accent',
+};
+
+const ALERT_SEVERITY_ICON: Record<AlertSeverity, SFSymbol> = {
+  critical: 'exclamationmark.octagon.fill',
+  warning: 'exclamationmark.triangle.fill',
+  info: 'sparkles',
+};
 
 export default function DiscoverScreen() {
   const router = useRouter();
@@ -35,32 +56,31 @@ export default function DiscoverScreen() {
   const { t } = useTranslation();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [featured, setFeatured] = useState<Product[]>([]);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const [productsResponse, agenciesResponse] = await Promise.all([
-        getProducts({ page: 1 }),
-        getAgencies(),
-      ]);
-      setFeatured(productsResponse.data.slice(0, 8));
-      setAgencies(agenciesResponse);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.somethingWentWrong'));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [t]);
+  // One query per resource, shared with every other screen through the cache -
+  // this screen used to fire four requests, two of them duplicates of its own.
+  const productsQuery = useProductsQuery({});
+  // Only the certificate states that can produce an alert are fetched.
+  const revokedQuery = useCertificatesQuery({ status: 'revoked' });
+  // Favourites are resolved by id, not filtered out of a page: a favourite
+  // outside the first page of the directory would otherwise silently vanish.
+  const favoriteAgenciesQuery = useFavoriteAgenciesQuery(favoriteAgencies);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const featured = flattenProductPages(productsQuery.data?.pages).slice(0, 8);
+  const certificates = revokedQuery.data ?? [];
+  const favoriteAgenciesData = favoriteAgenciesQuery.data ?? [];
+
+  const loading = productsQuery.isPending;
+  const isRefetching =
+    productsQuery.isRefetching || revokedQuery.isRefetching || favoriteAgenciesQuery.isRefetching;
+  const queryError =
+    productsQuery.isError && featured.length === 0 ? productsQuery.error : null;
+
+  function handleRefresh() {
+    void productsQuery.refetch();
+    void revokedQuery.refetch();
+    void favoriteAgenciesQuery.refetch();
+  }
 
   function handleProductPress(product: Product) {
     router.push(`/products/${product.id}`);
@@ -69,6 +89,10 @@ export default function DiscoverScreen() {
   function handleSearchSubmit() {
     const query = searchQuery.trim();
     if (!query) return;
+    // No `search_performed` here on purpose: this navigates to the products
+    // screen, which runs the query and reports it with the real result count.
+    // Emitting a second event for the same intent would double every number in
+    // the search funnel.
     setSearchQuery('');
     router.push({ pathname: '/products', params: { name: query } });
   }
@@ -77,15 +101,17 @@ export default function DiscoverScreen() {
     router.push('/alerts');
   }
 
-  const favoriteAgenciesData = agencies.filter(agency => favoriteAgencies.includes(agency.id));
-
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.textMuted} />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={handleRefresh}
+            tintColor={theme.textMuted}
+          />
         }>
         <View style={styles.header}>
           <View style={styles.headerRow}>
@@ -121,11 +147,11 @@ export default function DiscoverScreen() {
 
         {loading ? (
           <ActivityIndicator style={styles.loader} color={theme.accent} size="large" />
-        ) : error ? (
+        ) : queryError ? (
           <EmptyState
             icon="exclamationmark.triangle"
             title={t('common.somethingWentWrong')}
-            message={error}
+            message={queryError.message}
           />
         ) : (
           <>
@@ -134,7 +160,7 @@ export default function DiscoverScreen() {
               actionLabel={t('common.seeAll')}
               onAction={handleSeeAllAlerts}
             />
-            <AlertsPreview />
+            <AlertsPreview products={featured} certificates={certificates} />
 
             <SectionHeader title={t('discover.featuredProducts')} />
             {featured.length === 0 ? (
@@ -147,7 +173,7 @@ export default function DiscoverScreen() {
                 keyExtractor={item => String(item.id)}
                 contentContainerStyle={styles.horizontalList}
                 renderItem={({ item, index }) => (
-                  <Animated.View entering={FadeIn.duration(400).delay(index * 80)}>
+                  <Animated.View entering={FadeIn.duration(400).delay(staggerDelay(index, 80))}>
                     <View style={styles.featuredCard}>
                       <ProductCard product={item} onPress={handleProductPress} />
                     </View>
@@ -177,45 +203,25 @@ export default function DiscoverScreen() {
   );
 }
 
-function AlertsPreview() {
+interface AlertsPreviewProps {
+  products: Product[];
+  certificates: Certificate[];
+}
+
+/**
+ * The top few alerts, derived from the data the screen already loaded.
+ *
+ * Shares `buildAlerts` with the full alerts screen, so the preview can never
+ * disagree with what the user sees after tapping "see all" - and it surfaces
+ * the same real signals (revoked or expiring certificates, outdated entries)
+ * rather than restating the first rows of the catalog as if they were news.
+ */
+function AlertsPreview({ products, certificates }: AlertsPreviewProps) {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation();
-  const [alerts, setAlerts] = useState<{ id: string; text: string; type: 'product' | 'agency' }[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const productsResponse = await getProducts({ page: 1 });
-        const agenciesResponse = await getAgencies();
-
-        const productAlerts = productsResponse.data.slice(0, 3).map(product => ({
-          id: `product-${product.id}`,
-          text: t('discover.newProductAdded', { name: product.name }),
-          type: 'product' as const,
-        }));
-
-        const agencyAlerts = agenciesResponse.slice(0, 2).map(agency => ({
-          id: `agency-${agency.id}`,
-          text: t('discover.agencyNowOn', { name: agency.name }),
-          type: 'agency' as const,
-        }));
-
-        setAlerts([...productAlerts, ...agencyAlerts].slice(0, 4));
-      } catch {
-        setAlerts([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, [t]);
-
-  if (loading) {
-    return <ActivityIndicator style={styles.loader} color={theme.accent} />;
-  }
+  const alerts = buildAlerts(products, certificates).slice(0, 4);
 
   if (alerts.length === 0) {
     return (
@@ -230,34 +236,36 @@ function AlertsPreview() {
 
   return (
     <ThemedView type="surface" style={styles.alertsCard}>
-      {alerts.map(alert => (
-        <Pressable
-          key={alert.id}
-          onPress={() => {
-            const [type, id] = alert.id.split('-');
-            if (type === 'product') {
-              router.push(`/products/${id}`);
-            } else {
-              router.push(`/agencies/${id}`);
-            }
-          }}>
-          <ThemedView style={styles.alertRow}>
-            <SymbolView
-              name={alert.type === 'product' ? 'cube.box' : 'building.2'}
-              tintColor={theme.accent}
-              size={18}
-            />
-            <ThemedText type="smallMedium" numberOfLines={1} style={styles.alertText}>
-              {alert.text}
-            </ThemedText>
-            <SymbolView
-              name="chevron.right"
-              tintColor={theme.textMuted}
-              size={14}
-            />
-          </ThemedView>
-        </Pressable>
-      ))}
+      {alerts.map(alert => {
+        const colorKey = ALERT_SEVERITY_COLOR[alert.severity];
+        const title = t(alert.titleKey, { name: alert.subject, days: alert.days ?? 0 });
+
+        return (
+          <Pressable
+            key={alert.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${title}. ${alert.subject}`}
+            onPress={() =>
+              router.push(
+                alert.target.type === 'product'
+                  ? `/products/${alert.target.id}`
+                  : `/agencies/${alert.target.id}`
+              )
+            }>
+            <ThemedView style={styles.alertRow}>
+              <SymbolView
+                name={ALERT_SEVERITY_ICON[alert.severity]}
+                tintColor={theme[colorKey]}
+                size={18}
+              />
+              <ThemedText type="smallMedium" numberOfLines={1} style={styles.alertText}>
+                {title}
+              </ThemedText>
+              <SymbolView name="chevron.right" tintColor={theme.textMuted} size={14} />
+            </ThemedView>
+          </Pressable>
+        );
+      })}
     </ThemedView>
   );
 }

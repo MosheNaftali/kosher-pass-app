@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { AdBanner } from './ad-banner';
 import { ThemedText } from './themed-text';
 
+import { Config } from '@/constants/config';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -37,7 +38,9 @@ export default function AppTabs() {
   const tabs = useTabConfig();
   const theme = useTheme();
   const segments = useSegments();
-  // The camera UI on /scan owns the full screen — no ad banner there.
+  // The camera UI on /scan owns the full screen - no ad banner there. Whether a
+  // banner renders at all is decided by `Config.adsEnabled` inside AdBanner,
+  // which stays inert until AdMob is configured (see .env.example).
   const showAdBanner = segments[0] !== 'scan';
 
   return (
@@ -60,7 +63,7 @@ export default function AppTabs() {
           )}
         </TabList>
       </Tabs>
-      {/* {showAdBanner && <AdBanner />} */}
+      {Config.adsEnabled && showAdBanner && <AdBanner />}
     </View>
   );
 }
@@ -83,7 +86,14 @@ function TabButton({
   };
 
   return (
-    <Pressable {...props} onPressIn={handlePressIn} onPressOut={handlePressOut} style={styles.tabButton}>
+    <Pressable
+      {...props}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: Boolean(isFocused) }}
+      accessibilityLabel={label}
+      style={styles.tabButton}>
       <Animated.View
         style={[
           styles.tabButtonInner,
@@ -121,7 +131,10 @@ function ScanTabTrigger({ tab }: { tab: TabConfig }) {
 
   return (
     <TabTrigger name={tab.name} href={tab.href} asChild>
-      <Pressable style={styles.scanButtonContainer}>
+      <Pressable
+        style={styles.scanButtonContainer}
+        accessibilityRole="tab"
+        accessibilityLabel={tab.label}>
         <View style={[styles.scanButton, { backgroundColor: theme.accent }, Shadows.md]}>
           <SymbolView
             name={tab.icon}

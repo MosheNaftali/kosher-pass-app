@@ -1,7 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -23,9 +23,11 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
-import { API_BASE_URL } from '@/services/api';
-import { getProductById, type Product } from '@/services/products';
+import { useProductQuery } from '@/hooks/use-queries';
+import { isSafeExternalUrl, resolveMediaUrl } from '@/services/api';
+import { track } from '@/services/telemetry';
 import { getCountryTranslationKey } from '@/utils/countries';
+import { getFreshnessTier } from '@/utils/freshness';
 import LogoImage from '@/assets/images/logo.png';
 
 export default function ProductDetailScreen() {
@@ -36,43 +38,52 @@ export default function ProductDetailScreen() {
   const { t } = useTranslation();
   const { addToShoppingList, removeFromShoppingList, isInShoppingList } = useSavedItems();
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const numericId = Number(id);
+  const productQuery = useProductQuery(numericId);
+  const product = productQuery.data ?? null;
   const inList = product ? isInShoppingList(product.id) : false;
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setError(null);
-        const data = await getProductById(Number(id));
-        setProduct(data);
-        if (!data) {
-          setError(t('products.productNotFound'));
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : t('products.failedToLoad'));
-      } finally {
-        setLoading(false);
-      }
-    }
+  const loading = productQuery.isPending && Number.isInteger(numericId);
+  const notFound = !Number.isInteger(numericId) || (productQuery.isSuccess && product === null);
+  const loadError = productQuery.isError ? productQuery.error : null;
 
-    load();
-  }, [id, t]);
+  // Reported once per product, not on every render or refetch.
+  const reportedProductRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!product || reportedProductRef.current === product.id) return;
+    reportedProductRef.current = product.id;
+
+    const tier = getFreshnessTier(product.updatedAt);
+    track('product_viewed', {
+      product_id: product.id,
+      kashrut_level: product.kashrutLevel,
+      is_mehadrin: product.isMehadrin,
+      agency_id: product.agency?.id,
+      freshness_tier: tier,
+    });
+    // Measures how much of the catalog has gone stale in front of real users,
+    // which is the signal for how hard the scrapers need to run.
+    if (tier === 'stale' || tier === 'outdated') {
+      track('freshness_alert_shown', { product_id: product.id, tier });
+    }
+  }, [product]);
 
   function handleToggleList() {
     if (!product) return;
     if (inList) {
       removeFromShoppingList(product.id);
+      track('product_removed_from_list', { product_id: product.id, source: 'detail' });
     } else {
       addToShoppingList(product.id);
+      track('product_added_to_list', { product_id: product.id, source: 'detail' });
     }
   }
 
   function handleAgencyPress() {
-    if (product?.agencyId) {
-      router.push(`/agencies/${product.agencyId.id}`);
-    }
+    const agency = product?.agency;
+    if (!agency) return;
+    track('agency_viewed', { agency_id: agency.id });
+    router.push(`/agencies/${agency.id}`);
   }
 
   if (loading) {
@@ -83,23 +94,23 @@ export default function ProductDetailScreen() {
     );
   }
 
-  if (error || !product) {
+  if (notFound || loadError || !product) {
     return (
       <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
         <EmptyState
           icon="exclamationmark.triangle"
           title={t('common.oops')}
-          message={error ?? t('products.productNotFound')}
+          message={loadError ? loadError.message : t('products.productNotFound')}
         />
       </ThemedView>
     );
   }
 
-  const imageSource = product.imgUrl
-    ? product.imgUrl.startsWith('http')
-      ? product.imgUrl
-      : `${API_BASE_URL}${product.imgUrl}`
-    : null;
+  const imageSource = resolveMediaUrl(product.imgUrl);
+  const agencyLogoSource = resolveMediaUrl(product.agency?.logoUrl);
+  // Server-supplied, so the scheme is checked before it can reach a browser.
+  const rawScanUrl = product.certificate?.scanUrl ?? null;
+  const certificateScanUrl = isSafeExternalUrl(rawScanUrl) ? rawScanUrl : null;
 
   const formattedUpdatedAt = new Date(product.updatedAt).toLocaleDateString(undefined, {
     year: 'numeric',
@@ -107,8 +118,8 @@ export default function ProductDetailScreen() {
     day: 'numeric',
   });
 
-  const validFrom = product.certificateId?.validFrom ?? null;
-  const validUntil = product.certificateId?.validUntil ?? null;
+  const validFrom = product.certificate?.validFrom ?? null;
+  const validUntil = product.certificate?.validUntil ?? null;
   const formattedValidFrom = validFrom
     ? new Date(validFrom).toLocaleDateString(undefined, {
       year: 'numeric',
@@ -144,7 +155,11 @@ export default function ProductDetailScreen() {
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      <Pressable onPress={() => router.back()} style={styles.backButton}>
+      <Pressable
+        onPress={() => router.back()}
+        style={styles.backButton}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.goBack')}>
         <SymbolView name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
       </Pressable>
 
@@ -199,13 +214,13 @@ export default function ProductDetailScreen() {
             </View>
           )}
 
-          {product.countryId && (
+          {product.country && (
             <View style={styles.metaRow}>
               <ThemedText type="small" themeColor="textSecondary">
                 {t('products.country')}
               </ThemedText>
               <ThemedText type="smallMedium">
-                {t(getCountryTranslationKey(product.countryId.code), (product.countryId.code ?? '').toUpperCase())}
+                {t(getCountryTranslationKey(product.country.code), (product.country.code ?? '').toUpperCase())}
               </ThemedText>
             </View>
           )}
@@ -221,31 +236,36 @@ export default function ProductDetailScreen() {
           </View>
         </ThemedView>
 
-        {product.agencyId && (
+        {product.agency && (
           <ThemedView type="surface" style={styles.section}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               {t('products.certifyingAgency')}
             </ThemedText>
-            <Pressable onPress={handleAgencyPress}>
+            <Pressable
+              onPress={handleAgencyPress}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.a11y.viewAgency', {
+                name: product.agency.name,
+              })}>
               <View style={styles.agencyRow}>
-                {product.agencyId.logoUrl ? (
+                {agencyLogoSource ? (
                   <Image
-                    source={{ uri: product.agencyId.logoUrl.startsWith('http') ? product.agencyId.logoUrl : `${API_BASE_URL}${product.agencyId.logoUrl}` }}
+                    source={{ uri: agencyLogoSource }}
                     style={styles.agencyLogo}
                     contentFit="contain"
                   />
                 ) : (
                   <View style={[styles.agencyLogo, styles.agencyLogoPlaceholder, { backgroundColor: theme.border }]}>
                     <ThemedText type="bodyBold" themeColor="textMuted">
-                      {product.agencyId.name.charAt(0)}
+                      {product.agency.name.charAt(0)}
                     </ThemedText>
                   </View>
                 )}
                 <View style={styles.agencyInfo}>
-                  <ThemedText type="bodyBold">{product.agencyId.name}</ThemedText>
-                  {product.agencyId.countryId && (
+                  <ThemedText type="bodyBold">{product.agency.name}</ThemedText>
+                  {product.agency.country && (
                     <ThemedText type="small" themeColor="textSecondary">
-                      {t(getCountryTranslationKey(product.agencyId.countryId.code), (product.agencyId.countryId.code ?? '').toUpperCase())}
+                      {t(getCountryTranslationKey(product.agency.country.code), (product.agency.country.code ?? '').toUpperCase())}
                     </ThemedText>
                   )}
                 </View>
@@ -255,16 +275,16 @@ export default function ProductDetailScreen() {
           </ThemedView>
         )}
 
-        {product.certificateId && (
+        {product.certificate && (
           <ThemedView type="surface" style={styles.section}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               {t('products.certificate')}
             </ThemedText>
             <View style={styles.certificateRow}>
-              <CertificateBadge status={product.certificateId.status} />
-              {product.certificateId.certificateCode && (
+              <CertificateBadge status={product.certificate.status} />
+              {product.certificate.certificateCode && (
                 <ThemedText type="small" themeColor="textSecondary">
-                  {product.certificateId.certificateCode}
+                  {product.certificate.certificateCode}
                 </ThemedText>
               )}
             </View>
@@ -276,9 +296,15 @@ export default function ProductDetailScreen() {
                 <ThemedText type="smallMedium">{validityRow.value}</ThemedText>
               </View>
             )}
-            {product.certificateId.scanUrl && (
-              <ExternalLink href={product.certificateId.scanUrl} asChild>
-                <Pressable style={styles.scanLink}>
+            {certificateScanUrl && (
+              <ExternalLink
+                href={certificateScanUrl}
+                onPress={() => track('certificate_scan_opened', { product_id: product.id })}
+                asChild>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t('products.viewScan')}
+                  style={styles.scanLink}>
                   <ThemedText type="smallMedium" themeColor="accent">
                     {t('products.viewScan')}
                   </ThemedText>
@@ -304,6 +330,9 @@ export default function ProductDetailScreen() {
       <ThemedView type="surface" style={[styles.footer, { paddingBottom: insets.bottom + Spacing.four }]}>
         <Pressable
           onPress={handleToggleList}
+          accessibilityRole="button"
+          accessibilityState={{ selected: inList }}
+          accessibilityLabel={inList ? t('products.addedToList') : t('products.addToList')}
           style={[
             styles.actionButton,
             { backgroundColor: inList ? theme.success : theme.accent },

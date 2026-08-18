@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import Constants from 'expo-constants';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
+import { Config } from '@/constants/config';
 import { Layout } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -21,15 +21,20 @@ import { useTheme } from '@/hooks/use-theme';
  */
 
 function resolveUnitId(): string {
+  // `adsEnabled` is the master switch: with it off the banner never mounts an
+  // ad request, not even the dev test unit.
+  if (!Config.adsEnabled) {
+    return '';
+  }
   if (__DEV__) {
     return TestIds.BANNER;
   }
-  const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
-  const unitId = Platform.select({
-    ios: extra?.admobBannerUnitIdIos,
-    android: extra?.admobBannerUnitIdAndroid,
-  });
-  return typeof unitId === 'string' ? unitId : '';
+  return (
+    Platform.select({
+      ios: Config.admobBannerUnitIdIos,
+      android: Config.admobBannerUnitIdAndroid,
+    }) ?? ''
+  );
 }
 
 export function AdBanner() {

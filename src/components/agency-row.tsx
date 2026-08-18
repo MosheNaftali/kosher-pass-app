@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { API_BASE_URL } from '@/services/api';
+import { resolveMediaUrl } from '@/services/api';
 import type { Agency } from '@/services/agencies';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,17 +30,21 @@ export function AgencyRow({
   const theme = useTheme();
   const { t } = useTranslation();
 
-  const logoSource = agency.logoUrl
-    ? agency.logoUrl.startsWith('http')
-      ? agency.logoUrl
-      : `${API_BASE_URL}${agency.logoUrl}`
-    : null;
+  const logoSource = resolveMediaUrl(agency.logoUrl);
 
   return (
-    <Pressable onPress={() => onPress?.(agency)}>
+    <Pressable
+      onPress={() => onPress?.(agency)}
+      accessibilityRole="button"
+      accessibilityLabel={t('common.a11y.viewAgency', { name: agency.name })}>
       <ThemedView type="surface" style={styles.container}>
         {logoSource ? (
-          <Image source={{ uri: logoSource }} style={styles.logo} contentFit="contain" />
+          <Image
+            source={{ uri: logoSource }}
+            style={styles.logo}
+            contentFit="contain"
+            recyclingKey={agency.id}
+          />
         ) : (
           <ThemedView type="surfaceElevated" style={styles.logoPlaceholder}>
             <SymbolView
@@ -55,15 +59,23 @@ export function AgencyRow({
           <ThemedText type="bodyBold" numberOfLines={1}>
             {agency.name}
           </ThemedText>
-          {agency.countryId && (
+          {agency.country && (
             <ThemedText type="small" themeColor="textSecondary">
-              {t(getCountryTranslationKey(agency.countryId.code), (agency.countryId.code ?? '').toUpperCase())}
+              {t(getCountryTranslationKey(agency.country.code), (agency.country.code ?? '').toUpperCase())}
             </ThemedText>
           )}
         </ThemedView>
 
         {showFavorite && (
-          <Pressable onPress={onToggleFavorite} hitSlop={12} style={styles.favoriteButton}>
+          <Pressable
+            onPress={onToggleFavorite}
+            hitSlop={12}
+            style={styles.favoriteButton}
+            accessibilityRole="button"
+            accessibilityState={{ selected: Boolean(isFavorite) }}
+            accessibilityLabel={t(
+              isFavorite ? 'common.a11y.removeFromFavorites' : 'common.a11y.addToFavorites'
+            )}>
             <SymbolView
               name={isFavorite ? 'star.fill' : 'star'}
               tintColor={isFavorite ? theme.accent : theme.border}

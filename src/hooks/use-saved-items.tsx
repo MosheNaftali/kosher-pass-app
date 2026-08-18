@@ -26,6 +26,28 @@ interface SavedItemsContextType {
 
 const SavedItemsContext = createContext<SavedItemsContextType | null>(null);
 
+/**
+ * Narrows a value parsed out of AsyncStorage into a `ShoppingListItem`.
+ *
+ * Persisted data outlives the code that wrote it: an older app version, a
+ * partial write, or a hand-edited store can all produce entries that no longer
+ * match the current shape. Casting them straight into state crashes at render
+ * (`item.quantity` on `undefined`), so anything that does not validate is
+ * dropped instead.
+ */
+function isShoppingListItem(value: unknown): value is ShoppingListItem {
+  if (typeof value !== 'object' || value === null) return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.productId === 'number' &&
+    Number.isFinite(item.productId) &&
+    typeof item.quantity === 'number' &&
+    Number.isFinite(item.quantity) &&
+    item.quantity >= 1 &&
+    typeof item.purchased === 'boolean'
+  );
+}
+
 export function SavedItemsProvider({ children }: { children: ReactNode }) {
   const [favoriteAgencies, setFavoriteAgencies] = useState<string[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
@@ -49,7 +71,7 @@ export function SavedItemsProvider({ children }: { children: ReactNode }) {
         if (listJson) {
           const parsed = JSON.parse(listJson) as unknown;
           if (Array.isArray(parsed)) {
-            setShoppingList(parsed as ShoppingListItem[]);
+            setShoppingList(parsed.filter(isShoppingListItem));
           }
         }
       } catch (error) {

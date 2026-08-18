@@ -15,6 +15,8 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
   return (
     <ThemedView>
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isOpen }}
         style={({ pressed }) => [styles.heading, pressed && styles.pressedHeading]}
         onPress={() => setIsOpen((value) => !value)}>
         <ThemedView type="surfaceElevated" style={styles.button}>
@@ -23,7 +25,7 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
             size={14}
             weight="bold"
             tintColor={theme.text}
-            style={{ transform: [{ rotate: isOpen ? '-90deg' : '90deg' }] }}
+            style={isOpen ? styles.chevronOpen : styles.chevronClosed}
           />
         </ThemedView>
 
@@ -55,6 +57,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  chevronClosed: {
+    transform: [{ rotate: '90deg' }],
+  },
+  chevronOpen: {
+    transform: [{ rotate: '-90deg' }],
   },
   content: {
     marginTop: Spacing.three,

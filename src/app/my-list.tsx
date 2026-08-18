@@ -1,7 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -21,9 +21,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useSavedItems, type ShoppingListItem } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
-import { API_BASE_URL } from '@/services/api';
-import { getAgencies, type Agency } from '@/services/agencies';
-import { getProducts, type Product } from '@/services/products';
+import { useFavoriteAgenciesQuery, useProductsByIdsQuery } from '@/hooks/use-queries';
+import { resolveMediaUrl } from '@/services/api';
+import type { Agency } from '@/services/agencies';
+import type { Product } from '@/services/products';
+import { track } from '@/services/telemetry';
+import { staggerDelay } from '@/utils/animation';
 import LogoImage from '@/assets/images/logo.png';
 
 type TabType = 'shopping' | 'agencies';
@@ -43,36 +46,29 @@ export default function MyListScreen() {
   } = useSavedItems();
 
   const [activeTab, setActiveTab] = useState<TabType>('shopping');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [productsData, agenciesData] = await Promise.all([
-          getProducts({ page: 1 }),
-          getAgencies(),
-        ]);
-        setProducts(productsData.data);
-        setAgencies(agenciesData);
-      } catch (error) {
-        console.error('Failed to load my list data', error);
-      } finally {
-        setLoading(false);
-      }
-    }
+  // The saved list holds ids that can point anywhere in the catalog, so they
+  // are resolved explicitly rather than joined against a single page - which is
+  // what used to make items past the first 50 vanish from the list.
+  const productIds = shoppingList.map(item => item.productId);
+  const productsQuery = useProductsByIdsQuery(productIds);
+  // Favourites resolve by id for the same reason the product ids do: filtering
+  // a single page of the directory would hide anything outside it.
+  const agenciesQuery = useFavoriteAgenciesQuery(favoriteAgencies);
 
-    load();
-  }, []);
+  const products = productsQuery.data ?? [];
+  const favoriteAgenciesData = agenciesQuery.data ?? [];
 
-  const favoriteAgenciesData = agencies.filter(agency => favoriteAgencies.includes(agency.id));
+  const loading = productsQuery.isPending || agenciesQuery.isPending;
+  const error =
+    (productsQuery.isError && products.length === 0 ? productsQuery.error : null) ??
+    (agenciesQuery.isError && favoriteAgenciesData.length === 0 ? agenciesQuery.error : null);
+
   const shoppingListItems = shoppingList
     .map(item => ({ item, product: products.find(p => p.id === item.productId) }))
-    .filter(({ product }) => product !== undefined) as {
-    item: ShoppingListItem;
-    product: Product;
-  }[];
+    .filter((entry): entry is { item: ShoppingListItem; product: Product } =>
+      entry.product !== undefined
+    );
 
   const purchasedCount = shoppingList.filter(item => item.purchased).length;
 
@@ -81,7 +77,26 @@ export default function MyListScreen() {
   }
 
   function handleAgencyPress(agency: Agency) {
+    track('agency_viewed', { agency_id: agency.id });
     router.push(`/agencies/${agency.id}`);
+  }
+
+  function handleTogglePurchased(item: ShoppingListItem) {
+    togglePurchased(item.productId);
+    track('list_item_purchased', {
+      product_id: item.productId,
+      purchased: !item.purchased,
+    });
+  }
+
+  function handleRemove(productId: number) {
+    removeFromShoppingList(productId);
+    track('product_removed_from_list', { product_id: productId, source: 'list' });
+  }
+
+  function handleClearPurchased() {
+    track('list_purchased_cleared', { items_count: purchasedCount });
+    clearPurchased();
   }
 
   return (
@@ -107,10 +122,20 @@ export default function MyListScreen() {
 
       {loading ? (
         <ActivityIndicator style={styles.loader} color={theme.accent} size="large" />
+      ) : error ? (
+        <EmptyState
+          icon="exclamationmark.triangle"
+          title={t('common.somethingWentWrong')}
+          message={error.message}
+        />
       ) : activeTab === 'shopping' ? (
         <>
           {purchasedCount > 0 && (
-            <Pressable onPress={clearPurchased} style={styles.clearButton}>
+            <Pressable
+              onPress={handleClearPurchased}
+              style={styles.clearButton}
+              accessibilityRole="button"
+              accessibilityLabel={t('mylist.clearPurchased', { count: purchasedCount })}>
               <ThemedText type="smallMedium" themeColor="accent">
                 {t('mylist.clearPurchased', { count: purchasedCount })}
               </ThemedText>
@@ -130,15 +155,15 @@ export default function MyListScreen() {
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
               renderItem={({ item: { item, product }, index }) => (
-                <Animated.View entering={FadeIn.duration(400).delay(index * 60)}>
+                <Animated.View entering={FadeIn.duration(400).delay(staggerDelay(index))}>
                   <ShoppingListRow
                     item={item}
                     product={product}
                     onPress={() => handleProductPress(product.id)}
-                    onTogglePurchased={() => togglePurchased(product.id)}
+                    onTogglePurchased={() => handleTogglePurchased(item)}
                     onIncrease={() => updateQuantity(product.id, item.quantity + 1)}
                     onDecrease={() => updateQuantity(product.id, item.quantity - 1)}
-                    onRemove={() => removeFromShoppingList(product.id)}
+                    onRemove={() => handleRemove(product.id)}
                   />
                 </Animated.View>
               )}
@@ -158,7 +183,7 @@ export default function MyListScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => (
-            <Animated.View entering={FadeIn.duration(400).delay(index * 60)} style={styles.row}>
+            <Animated.View entering={FadeIn.duration(400).delay(staggerDelay(index))} style={styles.row}>
               <AgencyRow agency={item} onPress={handleAgencyPress} />
             </Animated.View>
           )}
@@ -179,7 +204,12 @@ function TabButton({ label, active, onPress, badge }: TabButtonProps) {
   const theme = useTheme();
 
   return (
-    <Pressable onPress={onPress} style={styles.tabButton}>
+    <Pressable
+      onPress={onPress}
+      style={styles.tabButton}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}>
       <ThemedView
         type={active ? 'surfaceContrast' : 'surface'}
         style={[styles.tabButtonInner, active && { backgroundColor: theme.surfaceContrast }]}>
@@ -220,15 +250,19 @@ function ShoppingListRow({
   onRemove,
 }: ShoppingListRowProps) {
   const theme = useTheme();
-  const imageSource = product.imgUrl
-    ? product.imgUrl.startsWith('http')
-      ? product.imgUrl
-      : `${API_BASE_URL}${product.imgUrl}`
-    : null;
+  const { t } = useTranslation();
+  const imageSource = resolveMediaUrl(product.imgUrl);
 
   return (
     <ThemedView type="surface" style={[styles.rowCard, item.purchased && styles.purchasedCard]}>
-      <Pressable onPress={onTogglePurchased} style={styles.checkbox}>
+      <Pressable
+        onPress={onTogglePurchased}
+        style={styles.checkbox}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.purchased }}
+        accessibilityLabel={t(
+          item.purchased ? 'common.a11y.markNotPurchased' : 'common.a11y.markPurchased'
+        )}>
         <SymbolView
           name={item.purchased ? 'checkmark.circle.fill' : 'circle'}
           tintColor={item.purchased ? theme.success : theme.border}
@@ -236,7 +270,11 @@ function ShoppingListRow({
         />
       </Pressable>
 
-      <Pressable onPress={onPress} style={styles.productInfo}>
+      <Pressable
+        onPress={onPress}
+        style={styles.productInfo}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.viewProduct', { name: product.name })}>
         {imageSource ? (
           <Image source={{ uri: imageSource }} style={styles.productImage} contentFit="cover" />
         ) : (
@@ -266,7 +304,11 @@ function ShoppingListRow({
           onIncrease={onIncrease}
           onDecrease={onDecrease}
         />
-        <Pressable onPress={onRemove} hitSlop={8}>
+        <Pressable
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.a11y.removeFromList')}>
           <SymbolView name="trash" tintColor={theme.error} size={18} />
         </Pressable>
       </View>

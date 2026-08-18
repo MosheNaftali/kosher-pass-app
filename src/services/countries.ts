@@ -1,13 +1,10 @@
-import { apiGet } from './api';
-import type { Agency } from './agencies';
+import { apiGet, type ApiRequestOptions } from './api';
+import { countryWithAgenciesListSchema, type CountryWithAgencies } from './schemas';
 
-export interface CountryWithAgencies {
-  id: number;
-  code: string | null;
-  continent: string;
-  agencies: Pick<Agency, 'id' | 'name'>[];
-}
+export type { CountryWithAgencies };
 
-export async function getCountriesWithAgencies(): Promise<CountryWithAgencies[]> {
-  return apiGet<CountryWithAgencies[]>('/countries');
+export async function getCountriesWithAgencies(
+  options?: ApiRequestOptions
+): Promise<CountryWithAgencies[]> {
+  return apiGet('/countries', countryWithAgenciesListSchema, options);
 }

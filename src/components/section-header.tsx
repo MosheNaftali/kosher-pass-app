@@ -33,7 +33,14 @@ export function SectionHeader({ title, actionLabel, onAction }: SectionHeaderPro
   );
 
   if (onAction) {
-    return <Pressable onPress={onAction}>{content}</Pressable>;
+    return (
+      <Pressable
+        onPress={onAction}
+        accessibilityRole="button"
+        accessibilityLabel={actionLabel}>
+        {content}
+      </Pressable>
+    );
   }
 
   return content;

@@ -171,7 +171,30 @@
     },
     "filters": {
       "moreSelected": "+{{count}} more",
-      "andMore": "and {{count}} more"
+      "andMore": "and {{count}} more",
+      "activeCount": "{{count}} filter active",
+      "activeCount_other": "{{count}} filters active"
+    },
+    "offlineBanner": "You are offline — showing saved data",
+    "retry": "Try again",
+    "a11y": {
+      "decreaseQuantity": "Decrease quantity",
+      "increaseQuantity": "Increase quantity",
+      "clearSearch": "Clear search",
+      "removeFromList": "Remove from list",
+      "markPurchased": "Mark as purchased",
+      "markNotPurchased": "Mark as not purchased",
+      "addToFavorites": "Add to favourites",
+      "removeFromFavorites": "Remove from favourites",
+      "goBack": "Go back",
+      "toggleFlashlight": "Toggle flashlight",
+      "enterBarcodeManually": "Enter barcode manually",
+      "openFilters": "Open filters",
+      "removeFilter": "Remove filter {{name}}",
+      "expandSection": "Expand {{name}}",
+      "collapseSection": "Collapse {{name}}",
+      "viewProduct": "View {{name}}",
+      "viewAgency": "View {{name}}"
     }
   },
   "tabs": {
@@ -195,8 +218,13 @@
     "heroTitle": "Alerts",
     "newProduct": "New product added",
     "agencyJoined": "Agency joined Kosher Pass",
-    "noAlertsTitle": "No alerts yet",
-    "noAlertsMessage": "Check back later for updates"
+    "noAlertsTitle": "Nothing to report",
+    "noAlertsMessage": "No revoked or expiring certificates, and nothing out of date.",
+    "certificateRevoked": "Certificate revoked",
+    "certificateExpired": "Certificate expired",
+    "certificateExpiring": "Certificate expires in {{days}} days",
+    "productOutdated": "Not verified recently",
+    "productNew": "New product added"
   },
   "scan": {
     "cameraPermissionTitle": "Camera permission required",
@@ -275,7 +303,8 @@
     "noProductsFound": "No products found",
     "noProductsYet": "No products yet",
     "agencyNotFound": "Agency not found",
-    "failedToLoad": "Failed to load agency"
+    "failedToLoad": "Failed to load agency",
+    "unknownCountry": "Other"
   },
   "about": {
     "heroTitle": "About",

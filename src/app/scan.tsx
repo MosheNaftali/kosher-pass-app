@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/empty-state';
+import { isAbortError } from '@/services/api';
+import { captureError, track } from '@/services/telemetry';
 import { ScanOverlay } from '@/components/scan-overlay';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -36,6 +38,16 @@ export default function ScanScreen() {
   const [manualCode, setManualCode] = useState('');
   const [showManual, setShowManual] = useState(false);
 
+  // Camera permission is the app's hardest funnel step: a denial makes the
+  // scanner - the core feature - permanently unreachable. Reported once per
+  // resolved decision, not on every re-render.
+  const reportedPermissionRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (permission === null || permission.granted === reportedPermissionRef.current) return;
+    reportedPermissionRef.current = permission.granted;
+    track('scan_permission_result', { granted: permission.granted });
+  }, [permission]);
+
   useEffect(() => {
     if (permission?.granted === false && permission.canAskAgain === false) {
       Alert.alert(
@@ -49,6 +61,40 @@ export default function ScanScreen() {
     }
   }, [permission, t]);
 
+  // A lookup outlives the screen if the user navigates away mid-scan; the
+  // controller lets the unmount cancel it instead of leaking the request and
+  // then setting state on a gone component.
+  const lookupRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => lookupRef.current?.abort(), []);
+
+  function startLookup(): AbortSignal {
+    lookupRef.current?.abort();
+    const controller = new AbortController();
+    lookupRef.current = controller;
+    return controller.signal;
+  }
+
+  /**
+   * Records the outcome of a code lookup.
+   *
+   * A miss is the app's highest-value signal: a user standing in a shop holding
+   * a product the catalog does not know. `barcode_not_found` carries the code
+   * itself - a product barcode is a public identifier, not personal data - so
+   * the misses can be exported directly into a catalog backlog, ranked by how
+   * often real shoppers hit them.
+   */
+  function reportLookup(code: string, found: boolean, manualEntry: boolean) {
+    track('barcode_scanned', {
+      found,
+      barcode_length: code.replace(/\D/g, '').length,
+      manual_entry: manualEntry,
+    });
+    if (!found) {
+      track('barcode_not_found', { barcode: code, manual_entry: manualEntry });
+    }
+  }
+
   async function handleBarcodeScanned(data: { data: string }) {
     if (scanned || searching) return;
 
@@ -57,8 +103,9 @@ export default function ScanScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
-      const product = await searchProductByBarcode(data.data);
+      const product = await searchProductByBarcode(data.data, { signal: startLookup() });
       setSearching(false);
+      reportLookup(data.data, product !== null, false);
 
       if (product) {
         router.push(`/products/${product.id}`);
@@ -78,7 +125,9 @@ export default function ScanScreen() {
           ]
         );
       }
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) return;
+      captureError(error, { screen: 'scan', action: 'barcode_lookup' });
       setSearching(false);
       setScanned(false);
       Alert.alert(t('scan.errorTitle'), t('scan.searchFailed'));
@@ -86,20 +135,25 @@ export default function ScanScreen() {
   }
 
   async function handleManualSearch() {
-    if (!manualCode.trim()) return;
+    const code = manualCode.trim();
+    if (!code) return;
 
     setSearching(true);
     try {
-      const product = await searchProductByBarcode(manualCode.trim());
+      const product = await searchProductByBarcode(code, { signal: startLookup() });
+      reportLookup(code, product !== null, true);
+
       if (product) {
         router.push(`/products/${product.id}`);
       } else {
         Alert.alert(
           t('scan.productNotFoundTitle'),
-          t('scan.productNotFoundManualBody', { code: manualCode })
+          t('scan.productNotFoundManualBody', { code })
         );
       }
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) return;
+      captureError(error, { screen: 'scan', action: 'manual_lookup' });
       Alert.alert(t('scan.errorTitle'), t('scan.searchFailed'));
     } finally {
       setSearching(false);
@@ -122,7 +176,11 @@ export default function ScanScreen() {
           title={t('scan.cameraAccessNeededTitle')}
           message={t('scan.cameraAccessNeededBody')}
         />
-        <Pressable onPress={requestPermission} style={[styles.button, { backgroundColor: theme.accent }]}>
+        <Pressable
+          onPress={requestPermission}
+          accessibilityRole="button"
+          accessibilityLabel={t('scan.grantPermission')}
+          style={[styles.button, { backgroundColor: theme.accent }]}>
           <ThemedText type="bodyMedium" themeColor="primaryForeground">
             {t('scan.grantPermission')}
           </ThemedText>
@@ -148,6 +206,9 @@ export default function ScanScreen() {
         <View style={styles.controls}>
           <Pressable
             onPress={() => setTorch(prev => !prev)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: torch }}
+            accessibilityLabel={t('common.a11y.toggleFlashlight')}
             style={[styles.iconButton, { backgroundColor: theme.surfaceElevated }]}>
             <SymbolView
               name={torch ? 'flashlight.on.fill' : 'flashlight.off.fill'}
@@ -158,6 +219,9 @@ export default function ScanScreen() {
 
           <Pressable
             onPress={() => { setScanned(false); setShowManual(prev => !prev); }}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showManual }}
+            accessibilityLabel={t('common.a11y.enterBarcodeManually')}
             style={[styles.iconButton, { backgroundColor: theme.surfaceElevated }]}>
             <SymbolView name="keyboard" tintColor={theme.text} size={22} />
           </Pressable>
@@ -176,6 +240,9 @@ export default function ScanScreen() {
             <Pressable
               onPress={handleManualSearch}
               disabled={searching}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: searching, busy: searching }}
+              accessibilityLabel={t('scan.searchButton')}
               style={[styles.button, { backgroundColor: theme.accent }]}>
               {searching ? (
                 <ActivityIndicator color={theme.primaryForeground} />
@@ -191,6 +258,8 @@ export default function ScanScreen() {
         {scanned && (
           <Pressable
             onPress={() => setScanned(false)}
+            accessibilityRole="button"
+            accessibilityLabel={t('scan.tapToScanAgain')}
             style={[styles.scanAgainButton, { backgroundColor: theme.surfaceElevated }]}>
             <ThemedText type="bodyMedium">{t('scan.tapToScanAgain')}</ThemedText>
           </Pressable>

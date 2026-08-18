@@ -18,16 +18,27 @@ Part of the `final_code/` monorepo alongside the NestJS backend (`api/`, `worker
    pnpm install
    ```
 
-2. Start the backend API (from `../server/api`)
+2. Configure the environment
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   `.env` is gitignored. Every variable is documented in `.env.example`; all of them are optional
+   for local development — the app falls back to `http://localhost:3000` and runs with telemetry
+   and ads disabled.
+
+3. Start the backend API (from `../server/api`)
 
    ```bash
    cd ../server/api
    pnpm start
    ```
 
-   The app expects the API at `http://localhost:3000` by default. Override it by setting `extra.apiUrl` in `app.json` or via an environment config.
+   The app expects the API at `http://localhost:3000` by default. Override it with `API_URL` in
+   `.env`. Testing on a physical device? Use your machine's LAN IP, not `localhost`.
 
-3. Start the app
+4. Start the app
 
    **Native (iOS/Android) requires a development build** — the AdMob module (`react-native-google-mobile-ads`) is native code, so the app does **not** run in Expo Go:
 
@@ -36,7 +47,8 @@ Part of the `final_code/` monorepo alongside the NestJS backend (`api/`, `worker
    pnpm android    # builds and launches on the Android emulator (expo run:android)
    ```
 
-   The first build compiles the native project and can take several minutes. Re-run `npx expo prebuild` whenever `app.json` plugins change.
+   The first build compiles the native project and can take several minutes. Re-run
+   `npx expo prebuild` whenever the `plugins` array in `app.config.ts` changes.
 
    **Web** works without a dev build (ads are stubbed out):
 
@@ -44,15 +56,64 @@ Part of the `final_code/` monorepo alongside the NestJS backend (`api/`, `worker
    pnpm web
    ```
 
+## Offline support
+
+The app is used inside supermarkets, where connectivity is worst. Server responses are cached by
+TanStack Query and **persisted to AsyncStorage**, so a cold start with no network still shows the
+last known catalog.
+
+- Cached content stays on screen during a background refetch — a spinner never replaces data the
+  user is already reading.
+- An `OfflineBanner` makes the cached state visible. That matters here: a certificate revoked while
+  the device was offline would still render as valid from cache, and the user needs to know.
+- The persisted cache is invalidated by app version, so a build that changes a response shape never
+  rehydrates data the new schemas reject.
+
+## API response validation
+
+Every response is parsed by a zod schema in `src/services/schemas.ts`; the TypeScript types are
+inferred from those schemas, so validation and types cannot drift. The schemas also rename the
+server's entity relation columns (`agencyId` → `agency`, `certificateId` → `certificate`) so screens
+never read `product.agencyId.logoUrl`.
+
+## Telemetry
+
+Two optional services, both inert until you configure them — the app runs fine with neither.
+
+| | Service | Enable with | Purpose |
+|---|---|---|---|
+| Errors | [Sentry](https://sentry.io) | `SENTRY_DSN` | Crashes, JS errors, performance |
+| Analytics | [PostHog](https://posthog.com) | `POSTHOG_API_KEY` | Events, funnels, retention |
+
+- Sentry is **disabled in `__DEV__`** — local development never spends quota.
+- PostHog is **consent-gated**: nothing is captured until the user accepts the App Tracking
+  Transparency prompt. Sentry runs regardless, sets no user identity, and strips query strings
+  before sending.
+- Set `SENTRY_ORG` + `SENTRY_PROJECT` (and `SENTRY_AUTH_TOKEN` as a CI/EAS secret) to upload
+  source maps during EAS builds, so production stack traces are readable.
+- Never call a vendor SDK from a screen. Use the facade:
+
+  ```tsx
+  import { track, captureError } from '@/services/telemetry';
+  ```
+
+  Events are a typed catalog in `src/services/telemetry/events.ts` — see AGENTS.md.
+
 ## Ads (AdMob)
 
-An anchored banner shows above the tab bar on all tabs except Scan.
+An anchored banner shows above the tab bar on all tabs except Scan. **Off by default.**
 
+- Set `ADS_ENABLED=true` in `.env` to turn it on. While it is `false`, the AdMob native plugin is
+  left out of the build entirely.
 - Dev builds always serve Google's test banner (`TestIds.BANNER`).
-- Before release, replace the placeholder ids with your AdMob account values:
-  - `app.json` → `plugins["react-native-google-mobile-ads"]`: `androidAppId`, `iosAppId` (app ids, `ca-app-pub-…~…`)
-  - `app.json` → `extra`: `admobBannerUnitIdIos`, `admobBannerUnitIdAndroid` (banner unit ids, `ca-app-pub-…/…`). Empty = banner hidden in release builds.
-- iOS shows the App Tracking Transparency prompt on first launch; denying it falls back to non-personalized ads.
+- Before release, fill in your AdMob values in `.env`:
+  - `ADMOB_ANDROID_APP_ID` / `ADMOB_IOS_APP_ID` — app ids (`ca-app-pub-…~…`). **Both are
+    required**; without them the plugin is skipped, because AdMob's native init fails at startup
+    with invalid ids.
+  - `ADMOB_BANNER_UNIT_ID_IOS` / `ADMOB_BANNER_UNIT_ID_ANDROID` — banner unit ids
+    (`ca-app-pub-…/…`). Empty = banner hidden in release builds.
+- iOS shows the App Tracking Transparency prompt on first launch; denying it falls back to
+  non-personalized ads.
 
 
 ## Scripts
@@ -64,6 +125,9 @@ An anchored banner shows above the tab bar on all tabs except Scan.
 | `pnpm android` | Build and run on Android emulator (expo run:android) |
 | `pnpm web` | Start with web target |
 | `pnpm lint` | Run ESLint via `expo lint` |
+| `pnpm typecheck` | Type-check with `tsc --noEmit` |
+| `pnpm test` | Run the Jest suite |
+| `pnpm test:watch` | Jest in watch mode |
 
 ## Project structure
 
@@ -78,8 +142,12 @@ src/
 │   └── agencies/         # Agencies stack
 ├── components/           # Reusable UI components
 ├── constants/            # Design tokens (colors, fonts, spacing)
-├── hooks/                # Custom hooks (theme, debounce, saved items)
-├── services/             # API calls (products, agencies, certificates)
+├── hooks/                # Custom hooks (theme, debounce, saved items, screen tracking)
+├── services/             # API calls, validation, caching
+│   ├── schemas.ts        # zod schemas — the source of truth for API types
+│   ├── query-client.ts   # TanStack Query client + persisted offline cache
+│   └── telemetry/        # Analytics + error monitoring facade
+├── utils/                # Pure helpers (freshness, alerts, countries)
 ├── types/                # Type declarations
 └── global.css            # CSS custom properties for web
 ```
@@ -99,14 +167,23 @@ src/
 | react-native-google-mobile-ads | 16.4 |
 | expo-tracking-transparency | 57 |
 | @react-native-async-storage/async-storage | 2.2.0 |
+| @sentry/react-native | 7.11 |
+| posthog-react-native | 4.63 |
+| zod | 4.4 |
+| @tanstack/react-query | 5.101 |
 
 ## Configuration
+
+Configuration lives in **`app.config.ts`** (there is no `app.json`), which reads `.env` at build
+time and publishes values under `expo.extra`. In code, read them through
+`Config` in `src/constants/config.ts` — never `Constants.expoConfig.extra` directly.
 
 - Deep link scheme: `kosherpass://`
 - Type-safe routes: `experiments.typedRoutes: true`
 - React Compiler: `experiments.reactCompiler: true`
 - Web output: static SPA
-- API base URL: `http://localhost:3000` (configurable via `Constants.expoConfig.extra.apiUrl`)
+- API base URL: `http://localhost:3000` (override with `API_URL` in `.env`)
+- Android permissions: `CAMERA` only — the app never records audio
 
 ## Learn more
 

@@ -39,7 +39,11 @@ export function SearchBar({ value, onChangeText, placeholder, autoFocus, onSubmi
         onSubmitEditing={onSubmit}
       />
       {Platform.OS !== 'ios' && value.length > 0 && (
-        <Pressable onPress={() => onChangeText('')} hitSlop={8}>
+        <Pressable
+          onPress={() => onChangeText('')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.a11y.clearSearch')}>
           <SymbolView
             name={{ ios: 'xmark.circle.fill', web: 'close' }}
             tintColor={theme.textMuted}

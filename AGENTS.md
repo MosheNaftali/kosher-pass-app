@@ -44,6 +44,15 @@ Part of the `final_code/` monorepo alongside the NestJS backend packages (`api/`
 | `expo-haptics` | `~57.0.0` | Haptic feedback |
 | `react-native-google-mobile-ads` | `16.4.0` | AdMob banner ads (native only — requires a dev build, no Expo Go) |
 | `expo-tracking-transparency` | `~57.0.1` | iOS App Tracking Transparency prompt (personalized ads consent) |
+| `@sentry/react-native` | `~7.11.0` | Error monitoring + performance tracing (native — requires a dev build) |
+| `posthog-react-native` | `^4.63.2` | Product analytics, consent-gated |
+| `zod` | `^4.4.3` | Runtime validation of every API response |
+| `@tanstack/react-query` | `5.101.4` | Server-state cache, dedup, retry, background refetch |
+| `@tanstack/react-query-persist-client` | `5.101.4` | Persists the cache so the app works offline |
+| `@tanstack/query-async-storage-persister` | `5.101.4` | AsyncStorage backend for the persisted cache |
+| `@react-native-community/netinfo` | `12.0.1` | Connectivity, bridged into React Query's onlineManager |
+| `expo-application` | `~57.0.2` | Required by posthog-react-native |
+| `expo-file-system` | `~57.0.4` | Required by posthog-react-native (event queue persistence) |
 | `@react-native-async-storage/async-storage` | `2.2.0` | Local persistence for favorites/shopping list |
 | `react-native-worklets` | `0.10.0` | Worklet threading for Reanimated |
 | `react-native-web` | `~0.21.0` | Web target |
@@ -61,7 +70,8 @@ Always read the exact versioned docs at **https://docs.expo.dev/versions/v57.0.0
 
 ```
 app/
-├── app.json                        # Expo config (name, plugins, experiments)
+├── app.config.ts                   # Expo config (env-driven; replaces app.json)
+├── .env.example                    # Documented env template (copy to .env)
 ├── package.json                    # Dependencies & scripts
 ├── tsconfig.json                   # TypeScript config (extends expo/tsconfig.base)
 ├── pnpm-lock.yaml                  # Lockfile
@@ -113,25 +123,33 @@ app/
     ├── constants/
     │   └── theme.ts                # Design tokens: Colors, Fonts, Spacing, Radius, Shadows
     ├── utils/                      # Pure helpers (no React, no I/O)
+    │   ├── agencies.ts             # Country grouping for the agencies directory
     │   ├── countries.ts            # Country/continent grouping helpers
     │   └── freshness.ts            # Freshness tier computation from updatedAt
-├── hooks/
-│   ├── use-color-scheme.ts     # Native: re-exports RN's useColorScheme
-│   ├── use-color-scheme.web.ts # Web: hydration-safe color scheme hook
-│   ├── use-theme.ts            # Returns Colors object for current scheme
-│   ├── use-debounce.ts         # Debounced value hook
-│   └── use-saved-items.tsx     # Favorites + shopping list context
-├── i18n/                       # Internationalization
-│   ├── index.ts                # i18next initialization + config
-│   ├── use-locale.ts           # Locale hook with AsyncStorage persistence
-│   └── resources/
-│       ├── en/translation.json # English strings
-│       └── es/translation.json # Spanish strings
-├── services/                   # API calls
-    │   ├── api.ts                  # Base fetch client + API_BASE_URL
+    ├── hooks/                      # React hooks
+    │   ├── use-color-scheme.ts     # Native: re-exports RN's useColorScheme
+    │   ├── use-color-scheme.web.ts # Web: hydration-safe color scheme hook
+    │   ├── use-theme.ts            # Returns Colors object for current scheme
+    │   ├── use-debounce.ts         # Debounced value hook
+    │   ├── use-saved-items.tsx     # Favorites + shopping list context
+    │   └── use-screen-tracking.ts  # Auto screen_view + flush on background
+    ├── i18n/                       # Internationalization
+    │   ├── index.ts                # i18next initialization + config
+    │   ├── use-locale.ts           # Locale hook with AsyncStorage persistence
+    │   └── resources/
+    │       ├── en/translation.json # English strings
+    │       └── es/translation.json # Spanish strings
+    ├── services/                   # API calls + telemetry
+    │   ├── api.ts                  # Base fetch client: timeout, abort, URL guards
     │   ├── products.ts             # Product endpoints
     │   ├── agencies.ts             # Agency endpoints
-    │   └── certificates.ts         # Certificate endpoints
+    │   ├── certificates.ts         # Certificate endpoints
+    │   ├── countries.ts            # Country endpoints
+    │   └── telemetry/              # Analytics + error monitoring facade
+    │       ├── index.ts            # track / trackScreen / captureError / initTelemetry
+    │       ├── events.ts           # Typed event catalog (AnalyticsEvent union)
+    │       ├── posthog.ts          # PostHog adapter (consent-gated)
+    │       └── sentry.ts           # Sentry adapter (scrubbed)
     ├── types/
     │   └── declarations.d.ts       # Type declarations (e.g., *.css)
     └── global.css                  # CSS custom properties for web fonts
@@ -166,28 +184,50 @@ app/
 - Path aliases: `@/components/foo` resolves to `src/components/foo`. `@/assets/icon.png` resolves to `assets/icon.png`.
 - Use path aliases for all cross-directory imports. Use relative imports (`./`, `../`) only within the same directory.
 
-### Expo Config (`app.json`)
+### Expo Config (`app.config.ts`)
 
-```json
-{
-  "expo": {
-    "scheme": "kosherpass",
-    "userInterfaceStyle": "automatic",
-    "plugins": ["expo-router", ["expo-splash-screen", { "backgroundColor": "#208AEF", "imageWidth": 76 }]],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    },
-    "web": { "output": "static" }
-  }
-}
-```
+There is **no `app.json`** — it was replaced by `app.config.ts` so that environment-dependent
+values are read from `process.env` at build time instead of being committed. Expo CLI loads
+`.env` / `.env.local` before evaluating the file.
 
 - `typedRoutes: true` enables type-safe `<Link href="...">` and `router.push(...)`. Always use typed routes.
 - `reactCompiler: true` enables the React Compiler for automatic memoization. Avoid manual `useMemo`/`useCallback` — the compiler handles optimization.
 - `userInterfaceStyle: "automatic"` means the app follows the device light/dark setting.
-- Web output is `"static"` (SPA). If switching to SSR (`"server"`), update the router configuration accordingly.
 - When adding Expo plugins (camera, notifications, maps, etc.), add them to the `plugins` array.
+- **Plugins that need credentials are added conditionally.** The Sentry plugin only appears when
+  `SENTRY_ORG` + `SENTRY_PROJECT` are set; the AdMob plugin only when `ADS_ENABLED=true` **and**
+  both app ids are present. AdMob's native init hard-fails at startup with invalid ids, so a
+  half-configured build must not link it at all. Follow this pattern for any future native plugin
+  that requires keys.
+- `android.permissions` deliberately lists **only** `CAMERA`. `expo-camera` would add
+  `RECORD_AUDIO` by default; the plugin is configured with `recordAudioAndroid: false` because the
+  app never captures audio. An unused microphone permission is a store-review flag for no benefit.
+
+### Environment configuration
+
+Never read `Constants.expoConfig?.extra` directly. Everything goes through
+**`src/constants/config.ts`**, which types, validates and defaults every value in one place:
+
+```tsx
+import { Config, APP_VERSION, IS_PRODUCTION } from '@/constants/config';
+
+Config.apiUrl;        // string
+Config.environment;   // 'development' | 'staging' | 'production'
+Config.adsEnabled;    // boolean
+Config.sentryDsn;     // string ('' when unconfigured)
+```
+
+**Adding a new config value** — all four steps, in the same turn:
+
+1. Add the variable to `.env.example` with a comment explaining what it is and where to get it.
+2. Read it in `app.config.ts` and publish it under `extra`, with a sensible default.
+3. Add the field to the `AppConfig` interface and the `Config` object in `src/constants/config.ts`.
+4. Consume it via `Config.<field>`.
+
+**Nothing in `extra` is secret.** Every value ends up inside the shipped bundle and is readable by
+anyone with the app — these are public client identifiers only (a DSN, a project API key, an ad
+unit id). Anything that must stay private belongs behind the API. `SENTRY_AUTH_TOKEN` is the one
+build-time-only variable: it is used by the source-map upload and is never published to `extra`.
 
 ---
 
@@ -679,7 +719,13 @@ Tabs:
 
 ### Philosophy
 
-- **React hooks + Context first.** No Redux, Zustand, or other state libraries unless the app's scale demonstrably justifies them.
+- **Server state lives in TanStack Query, client state in hooks + Context.** The two are
+  deliberately separate. Query owns anything that comes from the API: caching, deduplication,
+  cancellation, retry, background refetch and the persisted offline cache. Do **not** re-implement
+  that with `useState` + `useEffect` in a screen.
+- **No Redux, Zustand, or other client-state libraries** unless the app's scale demonstrably
+  justifies them. React Query is not one of these - it is a server-state cache, and it exists here
+  because the app is used inside supermarkets where the network is worst.
 - **Co-locate state** as close to where it's consumed as possible. Lift state only when needed.
 - **Server state** (API responses) should live in the screen/component that fetches it unless shared across screens.
 - **Persistent local state** (favorites, shopping list) lives in `SavedItemsProvider` and is backed by `@react-native-async-storage/async-storage`.
@@ -707,20 +753,92 @@ export interface Product {
   // ...
 }
 
-export async function getProducts(search?: string): Promise<Product[]> {
+export async function getProducts(
+  search?: string,
+  options?: ApiRequestOptions,
+): Promise<Product[]> {
   const params = search ? `?search=${encodeURIComponent(search)}` : '';
-  return apiGet<Product[]>(`/products${params}`);
+  return apiGet<Product[]>(`/products${params}`, options);
 }
 
-export async function getProductById(id: number): Promise<Product | null> {
+export async function getProductById(
+  id: number,
+  options?: ApiRequestOptions,
+): Promise<Product | null> {
   try {
-    return await apiGet<Product>(`/products/${id}`);
+    return await apiGet<Product>(`/products/${id}`, options);
   } catch (error) {
     if ((error as { status?: number }).status === 404) return null;
     throw error;
   }
 }
 ```
+
+**`apiGet` requires a schema.** There is no untyped fetch path: the response is parsed by a zod
+schema from `src/services/schemas.ts`, and the return type is inferred from it. `response.json() as T`
+is a cast that checks nothing at runtime, and this app's entire output is a kashrut verdict - a
+malformed or tampered payload must not be able to reach the UI.
+
+The schemas are also the **anti-corruption layer**. The API mirrors TypeORM entities, where a
+relation column is named after its foreign key even though it carries the whole row (`agencyId` is
+an `Agency`). The rename happens once, in `schemas.ts`, so everything above it reads
+`product.agency`, `product.certificate`, `product.country`. Never reintroduce the wire names above
+that boundary.
+
+Schema tolerance is deliberate and asymmetric:
+
+- Unknown extra properties are **stripped**, so the server can add a field without breaking
+  deployed apps.
+- A missing or wrong-typed **required** field is a **hard failure** - rendering "pareve" from an
+  absent `kashrutLevel` is worse than showing an error.
+- `kashrutLevel` and `certificateStatus` **fall back** instead of failing: hiding a real product
+  from someone standing in a shop is worse than showing it with an unknown level.
+- Product listings drop individual malformed rows (`resilientProductPage`) rather than blanking the
+  catalog, and report the drops so a data-quality problem does not hide behind a shorter list.
+
+**Every service function takes an optional `ApiRequestOptions` as its last parameter** and passes
+it straight to `apiGet`. Callers use it to cancel:
+
+```tsx
+useEffect(() => {
+  const controller = new AbortController();
+  getProducts(undefined, { signal: controller.signal })
+    .then(setProducts)
+    .catch(err => {
+      if (isAbortError(err)) return;   // superseded or unmounted - not an error state
+      setError(err.message);
+    });
+  return () => controller.abort();
+}, []);
+```
+
+### Fetching data: use the query hooks
+
+Screens do not call the service layer directly. `src/hooks/use-queries.ts` exposes one hook per
+resource; each forwards React Query's `AbortSignal` into the service, so cancellation on unmount
+and on a superseded search is automatic.
+
+```tsx
+const productsQuery = useProductsQuery({ name: debouncedSearch.trim() || undefined });
+const products = flattenProductPages(productsQuery.data?.pages);
+
+// Cached pages render while a refetch runs, so the skeleton only shows when
+// there is genuinely nothing yet.
+const showSkeleton = productsQuery.isPending;
+// Only surface an error when there is no cached content to fall back on.
+const error = productsQuery.isError && products.length === 0 ? productsQuery.error : null;
+```
+
+Two rules that follow from the offline cache:
+
+1. **`isPending`, not `isLoading`/`isFetching`, gates the skeleton.** A background refetch must
+   never blank content the user is already reading.
+2. **An error state only wins when the list is empty.** Offline with a warm cache is a working
+   app, not an error screen - the `OfflineBanner` is what communicates the difference.
+
+Adding a resource means adding a hook there and a key to `queryKeys` in
+`src/services/query-client.ts`. Never write an inline query key: a typo'd key is a cache entry
+nothing can invalidate.
 
 ### Loading, error, and empty states
 
@@ -760,16 +878,13 @@ export default function ProductsScreen() {
 Never hardcode API URLs. Use `expo-constants` or an environment config module:
 
 ```tsx
-// src/services/api.ts
-import Constants from 'expo-constants';
+// Anywhere that needs configuration:
+import { Config } from '@/constants/config';
 
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://localhost:3000';
-
-export const apiClient = {
-  get: async (path: string) => fetch(`${API_BASE_URL}${path}`).then(r => r.json()),
-  // ... post, put, delete
-};
+Config.apiUrl;  // typed, validated, defaulted in one place
 ```
+
+See the "Environment configuration" section above for how to add a new value.
 
 ---
 
@@ -871,6 +986,32 @@ Products expose an `updatedAt` ISO string. The longer a product goes without an 
 
 **When to add a new tier:** Update both `FRESHNESS_THRESHOLDS` and the `tierColor` / `tierIcon` / `tierTranslationKey` maps in the relevant components in lockstep. Then add the matching translation keys to `en` and `es`.
 
+### Pattern: agencies directory grouped by country
+
+`src/app/agencies/index.tsx` renders a `SectionList`, one section per country, built by the pure
+helper `groupAgenciesByCountry(agencies, getCountryLabel)` in `@/utils/agencies`.
+
+- **Order is locale-aware.** Sections sort by the *translated* country name, never by the ISO code
+  — "Estados Unidos" belongs under E in Spanish even though its code is `us`. The screen passes
+  `code => t(getCountryTranslationKey(code), code.toUpperCase())` as the label resolver; the helper
+  itself never touches i18n, which keeps it pure and testable.
+- **Agencies sort by name inside each section**, and rows with no country collapse into one
+  trailing bucket labelled `agencies.unknownCountry`.
+- **Grouping needs the whole directory.** A country's agencies can land on any page, so the screen
+  auto-advances the infinite query up to `MAX_AUTO_PAGES` (10 × 50 rows) before falling back to
+  scroll-driven paging. Any future grouped-and-sorted list over a paginated endpoint must do the
+  same — grouping only the first page silently reorders itself as the user scrolls.
+
+### Pattern: `ExternalLink` with `asChild`
+
+`Link asChild` renders through expo-router's `Slot`, which **throws in development** when the
+cloned child's `style` prop is an array (`expo-router/build/ui/Slot.js`). Since composing a static
+`StyleSheet` entry with a theme colour (`[styles.button, { backgroundColor: theme.x }]`) is the
+house pattern, `ExternalLink` flattens an array style on its child with `StyleSheet.flatten` before
+handing it to `Link`. Call sites need no special handling. A **function** style
+(`({ pressed }) => [...]`) is not an array and passes through untouched — it is evaluated below the
+`Slot`. If another `asChild` wrapper around `Link` is ever added, it must repeat this flattening.
+
 ### Pattern: ads (AdMob anchored banner)
 
 The app shows a single AdMob banner anchored directly above the bottom tab bar, visible on every tab **except `/scan`** (the camera UI owns the full screen there).
@@ -931,6 +1072,73 @@ This splits each route into its own bundle, reducing initial load time.
 
 ---
 
+## Telemetry (analytics + error monitoring)
+
+Two backends, one facade. **Never import `@sentry/react-native` or `posthog-react-native` from a
+screen, component or hook** — everything goes through `@/services/telemetry`. That keeps the
+vendors swappable, enforces consent in one place, and guarantees a telemetry failure can never
+break a user's session (every entry point swallows its own errors).
+
+| Channel | Backend | Consent required | Answers |
+|---|---|---|---|
+| Analytics | PostHog | **Yes** — gated on the ATT prompt | "What do users do?" |
+| Errors | Sentry | No | "What is broken?" |
+
+Sentry runs without the tracking prompt on purpose: crash reporting is not behavioural
+advertising, it sets no user identity, and `beforeSend` strips query strings and any inferred
+user object before an event leaves the device. PostHog is created with `defaultOptIn: false` and
+only starts capturing once consent is granted.
+
+Both are inert when unconfigured (`SENTRY_DSN` / `POSTHOG_API_KEY` empty), so the app runs
+normally with no accounts set up. Sentry is additionally disabled under `__DEV__`.
+
+### The API
+
+```tsx
+import { track, captureError, trackScreen } from '@/services/telemetry';
+
+track('product_viewed', { product_id: 42, kashrut_level: 'pareve', /* ... */ });
+captureError(error, { screen: 'products', action: 'load_products' });
+```
+
+- **`track(name, properties)`** — a product-analytics event. Also recorded as a Sentry breadcrumb,
+  so a crash report shows the actions leading up to it with no second instrumentation pass.
+- **`captureError(error, context)`** — an *unexpected* error. For handled, expected failures (a
+  404, a cancelled request) use a `track` event instead; Sentry is for things that should not happen.
+- **`trackScreen(path)`** — do not call this manually. `useScreenTracking` in the root layout
+  covers every route automatically, so a new screen needs no instrumentation.
+
+### Adding an event
+
+Events are a **typed catalog**, not free-form strings. Add a variant to the `AnalyticsEvent`
+discriminated union in `src/services/telemetry/events.ts`; the compiler then enforces the payload
+at every call site. This is what stops a catalog from rotting into `product_view` /
+`productViewed` / `view_product` six months in.
+
+Rules for a new event:
+
+- `name` is snake_case, past tense, `object_verb`.
+- Properties are **scalars only** (`TelemetryPropertyValue`). Flatten instead of nesting:
+  `countries_count: 3`, never `countries: [...]`.
+- Absent values are `undefined`, never `''` — the PostHog adapter drops undefined keys so they
+  report as "not set" rather than creating a bogus empty bucket in every breakdown.
+- **No PII and no free text the user typed.** Search terms are recorded as
+  `query_length` + `results_count`, never as content. Barcodes are the one exception and are
+  deliberate: a product barcode is a public identifier, and `barcode_not_found` is the app's
+  most valuable signal — a ranked backlog of products real shoppers wanted and the catalog
+  did not have.
+- Any value that could be an id in a path must go through `toRouteTemplate` before it reaches an
+  event, so `/products/1423` is reported as `/products/:id`. High-cardinality properties make a
+  dashboard unusable and leak browsing history into event names.
+
+### Where telemetry is already wired
+
+`api.ts` emits `api_error` for every failed request (route template only, never the query
+string), and `AppErrorBoundary` reports render crashes with the React component stack. Neither
+needs touching when you add a screen.
+
+---
+
 ## Security
 
 ### Never hardcode secrets
@@ -944,11 +1152,25 @@ This splits each route into its own bundle, reducing initial load time.
 - Use **`expo-secure-store`** for tokens, passwords, and any sensitive data.
 - Install: `npx expo install expo-secure-store`
 - **Never** store credentials in `AsyncStorage` (it's unencrypted on Android).
+- **Validate anything read back out of `AsyncStorage`.** Persisted data outlives the code that
+  wrote it: an older app version, a partial write or a hand-edited store can all produce entries
+  that no longer match the current shape. Narrow with a type guard and drop what does not
+  validate — see `isShoppingListItem` in `use-saved-items.tsx`. Casting straight into state
+  crashes at render.
 
 ### Networking
 
-- All API calls must use **HTTPS** in production.
+- All API calls must use **HTTPS** in production. `API_URL` comes from the environment
+  (`app.config.ts` -> `Config.apiUrl`); it must never be hardcoded and must never be plain `http`
+  in a build that leaves your machine — iOS ATS and the Android cleartext policy block it.
 - Validate all user input before sending to the backend.
+- **Treat every server-supplied URL as untrusted.** Media paths and external links go through
+  `resolveMediaUrl()` / `isSafeExternalUrl()` in `@/services/api`, which reject anything that is
+  not `http:`/`https:`. A `javascript:` or custom-scheme value stored in the database must never
+  reach an `<Image>` source or a browser.
+- Every request carries a timeout (15s default) and accepts an `AbortSignal`. A screen that
+  fetches must abort on unmount, and a search must abort the superseded request — otherwise a
+  slow older response can overwrite newer results.
 - Sanitize data before rendering (guard against XSS on web).
 
 ### App integrity
@@ -1088,18 +1310,41 @@ This app lives in the `final_code/` monorepo. Changes to the app must not break 
 
 ---
 
-## Testing (Future)
+## Testing
 
-### Current state
+`pnpm test` runs Jest (`jest-expo` preset). `pnpm typecheck` and `pnpm lint` must both pass clean
+before any change is considered done.
 
-No testing framework is set up yet. The README references [Jest setup guide](https://docs.expo.dev/develop/unit-testing/).
+### What is covered
 
-### When testing is added
+| Area | File |
+|---|---|
+| Agencies directory grouping/ordering | `src/utils/agencies.test.ts` |
+| Freshness tiers, clock skew, corrupt dates | `src/utils/freshness.test.ts` |
+| Alert derivation, severity, ordering | `src/utils/alerts.test.ts` |
+| Query-string contract with the API DTOs | `src/services/products.test.ts` |
+| Response validation + anti-corruption renaming | `src/services/schemas.test.ts` |
+| URL scheme guards | `src/services/api.test.ts` |
+| Route-template cardinality guard | `src/services/telemetry/events.test.ts` |
+| Persisted shopping list validation | `src/hooks/use-saved-items.test.tsx` |
+| Root error boundary catch/report/retry | `src/components/app-error-boundary.test.tsx` |
 
-- Place test files next to their target: `src/components/foo.test.tsx` next to `src/components/foo.tsx`.
-- Test coverage goal: critical business logic, API services, navigation guards.
-- Component tests: use `@testing-library/react-native`.
-- Add `pnpm test` script to `package.json`.
+The server side has its own suite: `pnpm test` from `server/`.
+
+### Conventions
+
+- Test files sit next to their target: `foo.test.ts` beside `foo.ts`.
+- Priority is **pure logic and boundaries** - anything that decides what a shopper is told, and
+  anything that parses untrusted input. Rendering assertions come second.
+- `jest.setup.ts` stubs telemetry, `expo-constants`, AsyncStorage and NetInfo, so no test can reach
+  the network or a real analytics account.
+- **`renderHook` and `render` are async in RNTL 14** (React 19 concurrent rendering) - they must be
+  awaited, and state updates wrapped in `await act(async () => ...)`.
+- **pnpm caveat:** `transformIgnorePatterns` in `package.json` matches the
+  `node_modules/.pnpm/<name>@<version>/` layout by prefix. The stock jest-expo pattern assumes a
+  flat `node_modules` and silently leaves every React Native package untransformed.
+
+---
 
 ### 7. Cross-boundary API changes
 
@@ -1151,6 +1396,14 @@ The AI must fetch the versioned docs, not guess:
 - English only — code, comments, logs, commits.
 - Loading, error, empty states required on every data-fetching screen.
 - No secrets in source code — use env config + `expo-secure-store`.
+- Config is read through `Config` in `@/constants/config`, never `Constants.expoConfig.extra` directly.
+- Telemetry goes through `@/services/telemetry` — never import a vendor SDK in a screen.
+- Server state goes through the hooks in `@/hooks/use-queries` — never hand-roll fetch state in a screen.
+- Every API response is validated by a zod schema; types are inferred from the schemas, never hand-written.
+- Screens read `product.agency` / `.certificate` / `.country`, never the wire names `agencyId` / `certificateId` / `countryId`.
+- Every interactive element carries `accessibilityRole` and a label; toggles also carry `accessibilityState`.
+- Every service function accepts an optional `ApiRequestOptions`; fetching screens abort on unmount.
+- Server-supplied URLs pass through `resolveMediaUrl` / `isSafeExternalUrl` before use.
 - React Compiler handles memoization — avoid manual `useMemo`/`useCallback`.
 - All API calls go through `src/services/`.
 - Platform variants use file extensions (`.web.tsx`, `.ios.tsx`, `.android.tsx`).

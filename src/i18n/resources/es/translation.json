@@ -171,7 +171,30 @@
     },
     "filters": {
       "moreSelected": "+{{count}} más",
-      "andMore": "y {{count}} más"
+      "andMore": "y {{count}} más",
+      "activeCount": "{{count}} filtro activo",
+      "activeCount_other": "{{count}} filtros activos"
+    },
+    "offlineBanner": "Sin conexión — mostrando datos guardados",
+    "retry": "Reintentar",
+    "a11y": {
+      "decreaseQuantity": "Disminuir cantidad",
+      "increaseQuantity": "Aumentar cantidad",
+      "clearSearch": "Borrar búsqueda",
+      "removeFromList": "Quitar de la lista",
+      "markPurchased": "Marcar como comprado",
+      "markNotPurchased": "Marcar como no comprado",
+      "addToFavorites": "Añadir a favoritos",
+      "removeFromFavorites": "Quitar de favoritos",
+      "goBack": "Volver",
+      "toggleFlashlight": "Encender o apagar la linterna",
+      "enterBarcodeManually": "Introducir el código manualmente",
+      "openFilters": "Abrir filtros",
+      "removeFilter": "Quitar filtro {{name}}",
+      "expandSection": "Desplegar {{name}}",
+      "collapseSection": "Plegar {{name}}",
+      "viewProduct": "Ver {{name}}",
+      "viewAgency": "Ver {{name}}"
     }
   },
   "tabs": {
@@ -195,8 +218,13 @@
     "heroTitle": "Alertas",
     "newProduct": "Nuevo producto agregado",
     "agencyJoined": "Agencia se unió a Kosher Pass",
-    "noAlertsTitle": "Sin alertas aún",
-    "noAlertsMessage": "Vuelve más tarde para ver novedades"
+    "noAlertsTitle": "Nada que reportar",
+    "noAlertsMessage": "No hay certificados revocados ni por vencer, y nada desactualizado.",
+    "certificateRevoked": "Certificado revocado",
+    "certificateExpired": "Certificado vencido",
+    "certificateExpiring": "El certificado vence en {{days}} días",
+    "productOutdated": "Sin verificar recientemente",
+    "productNew": "Nuevo producto añadido"
   },
   "scan": {
     "cameraPermissionTitle": "Permiso de cámara requerido",
@@ -275,7 +303,8 @@
     "noProductsFound": "No se encontraron productos",
     "noProductsYet": "Sin productos aún",
     "agencyNotFound": "Agencia no encontrada",
-    "failedToLoad": "Error al cargar la agencia"
+    "failedToLoad": "Error al cargar la agencia",
+    "unknownCountry": "Otros"
   },
   "about": {
     "heroTitle": "Acerca de",

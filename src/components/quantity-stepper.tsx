@@ -1,5 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
@@ -15,10 +16,16 @@ interface QuantityStepperProps {
 
 export function QuantityStepper({ quantity, onIncrease, onDecrease }: QuantityStepperProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <ThemedView type="surfaceElevated" style={styles.container}>
-      <Pressable onPress={onDecrease} style={styles.button} hitSlop={8}>
+      <Pressable
+        onPress={onDecrease}
+        style={styles.button}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.decreaseQuantity')}>
         <SymbolView
           name={{ ios: 'minus', web: 'remove' }}
           tintColor={quantity > 1 ? theme.text : theme.textMuted}
@@ -31,7 +38,12 @@ export function QuantityStepper({ quantity, onIncrease, onDecrease }: QuantitySt
         {quantity}
       </ThemedText>
 
-      <Pressable onPress={onIncrease} style={styles.button} hitSlop={8}>
+      <Pressable
+        onPress={onIncrease}
+        style={styles.button}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.increaseQuantity')}>
         <SymbolView
           name={{ ios: 'plus', web: 'add' }}
           tintColor={theme.text}

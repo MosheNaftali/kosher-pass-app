@@ -1,7 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -25,10 +25,14 @@ import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
-import { API_BASE_URL } from '@/services/api';
-import { getAgencyById, type Agency } from '@/services/agencies';
-import { getCertificates, type Certificate } from '@/services/certificates';
-import { getProducts, type Product } from '@/services/products';
+import {
+  flattenProductPages,
+  useAgencyQuery,
+  useAgencyCertificatesQuery,
+  useProductsQuery,
+} from '@/hooks/use-queries';
+import { isSafeExternalUrl, resolveMediaUrl } from '@/services/api';
+import type { Product } from '@/services/products';
 import { getCountryTranslationKey } from '@/utils/countries';
 
 export default function AgencyDetailScreen() {
@@ -39,96 +43,42 @@ export default function AgencyDetailScreen() {
   const { t } = useTranslation();
   const { toggleFavoriteAgency, isFavoriteAgency } = useSavedItems();
 
-  const [agency, setAgency] = useState<Agency | null>(null);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [metaLoading, setMetaLoading] = useState(true);
-  const [metaError, setMetaError] = useState<string | null>(null);
-
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [productsError, setProductsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadMeta() {
-      try {
-        setMetaError(null);
-        const [agencyData, certificatesData] = await Promise.all([
-          getAgencyById(id),
-          getCertificates(),
-        ]);
+  const agencyQuery = useAgencyQuery(id ?? '');
+  const certificatesQuery = useAgencyCertificatesQuery(id ?? '');
+  const productsQuery = useProductsQuery({
+    agencyId: [id],
+    name: debouncedSearch.trim() || undefined,
+  });
 
-        setAgency(agencyData);
-        if (!agencyData) {
-          setMetaError(t('agencies.agencyNotFound'));
-        }
+  const agency = agencyQuery.data ?? null;
+  // Scoped server-side now: this used to download every certificate in the
+  // system and filter client-side.
+  const certificates = certificatesQuery.data ?? [];
+  const products = flattenProductPages(productsQuery.data?.pages);
 
-        setCertificates(certificatesData.filter(cert => cert.agencyId === id));
-      } catch (err) {
-        setMetaError(err instanceof Error ? err.message : t('agencies.failedToLoad'));
-      } finally {
-        setMetaLoading(false);
-      }
-    }
+  const metaLoading = agencyQuery.isPending;
+  const metaError = agencyQuery.isError
+    ? agencyQuery.error.message
+    : agencyQuery.isSuccess && agency === null
+      ? t('agencies.agencyNotFound')
+      : null;
 
-    loadMeta();
-  }, [id, t]);
-
-  const loadProducts = useCallback(
-    async (pageToLoad: number, shouldRefresh = false) => {
-      try {
-        if (shouldRefresh) {
-          setRefreshing(true);
-        } else if (pageToLoad === 1) {
-          setLoading(true);
-        } else {
-          setLoadingMore(true);
-        }
-
-        setProductsError(null);
-
-        const response = await getProducts({
-          agencyId: [id],
-          name: debouncedSearch,
-          page: pageToLoad,
-        });
-
-        if (pageToLoad === 1 || shouldRefresh) {
-          setProducts(response.data);
-        } else {
-          setProducts(prev => [...prev, ...response.data]);
-        }
-
-        setHasMore(response.page < response.lastPage);
-        setPage(pageToLoad);
-      } catch (err) {
-        setProductsError(err instanceof Error ? err.message : t('agencies.failedToLoad'));
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        setRefreshing(false);
-      }
-    },
-    [id, debouncedSearch, t]
-  );
-
-  useEffect(() => {
-    loadProducts(1);
-  }, [loadProducts]);
+  const productsError =
+    productsQuery.isError && products.length === 0 ? productsQuery.error : null;
 
   function handleLoadMore() {
-    if (!loading && !loadingMore && hasMore) {
-      loadProducts(page + 1);
+    if (productsQuery.hasNextPage && !productsQuery.isFetchingNextPage) {
+      void productsQuery.fetchNextPage();
     }
   }
 
   function handleRefresh() {
-    loadProducts(1, true);
+    void agencyQuery.refetch();
+    void certificatesQuery.refetch();
+    void productsQuery.refetch();
   }
 
   function handleProductPress(product: Product) {
@@ -151,11 +101,9 @@ export default function AgencyDetailScreen() {
     );
   }
 
-  const logoSource = agency.logoUrl
-    ? agency.logoUrl.startsWith('http')
-      ? agency.logoUrl
-      : `${API_BASE_URL}${agency.logoUrl}`
-    : null;
+  const logoSource = resolveMediaUrl(agency.logoUrl);
+  // Server-supplied, so the scheme is checked before it can reach a browser.
+  const websiteUrl = isSafeExternalUrl(agency.websiteUrl) ? agency.websiteUrl : null;
 
   const isFavorite = isFavoriteAgency(agency.id);
 
@@ -172,9 +120,9 @@ export default function AgencyDetailScreen() {
 
         <View style={styles.titleSection}>
           <ThemedText type="h2">{agency.name}</ThemedText>
-          {agency.countryId && (
+          {agency.country && (
             <ThemedText type="body" themeColor="textSecondary">
-              {t(getCountryTranslationKey(agency.countryId.code), (agency.countryId.code ?? '').toUpperCase())}
+              {t(getCountryTranslationKey(agency.country.code), (agency.country.code ?? '').toUpperCase())}
             </ThemedText>
           )}
         </View>
@@ -182,6 +130,11 @@ export default function AgencyDetailScreen() {
         <View style={styles.actions}>
           <Pressable
             onPress={() => toggleFavoriteAgency(agency.id)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isFavorite }}
+            accessibilityLabel={t(
+              isFavorite ? 'common.a11y.removeFromFavorites' : 'common.a11y.addToFavorites'
+            )}
             style={[styles.favoriteButton, { backgroundColor: theme.surfaceElevated }]}>
             <SymbolView
               name={isFavorite ? 'star.fill' : 'star'}
@@ -193,9 +146,12 @@ export default function AgencyDetailScreen() {
             </ThemedText>
           </Pressable>
 
-          {agency.websiteUrl && (
-            <ExternalLink href={agency.websiteUrl} asChild>
-              <Pressable style={[styles.websiteButton, { backgroundColor: theme.surfaceElevated }]}>
+          {websiteUrl && (
+            <ExternalLink href={websiteUrl} asChild>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={t('agencies.website')}
+                style={[styles.websiteButton, { backgroundColor: theme.surfaceElevated }]}>
                 <SymbolView name="globe" tintColor={theme.textMuted} size={20} />
                 <ThemedText type="smallMedium" themeColor="textSecondary">
                   {t('agencies.website')}
@@ -246,7 +202,11 @@ export default function AgencyDetailScreen() {
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      <Pressable onPress={() => router.back()} style={styles.backButton}>
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.goBack')}
+        style={styles.backButton}>
         <SymbolView name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
       </Pressable>
 
@@ -259,7 +219,14 @@ export default function AgencyDetailScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={listHeader}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.textMuted} />
+          <RefreshControl
+            refreshing={
+              (productsQuery.isRefetching && !productsQuery.isFetchingNextPage) ||
+              agencyQuery.isRefetching
+            }
+            onRefresh={handleRefresh}
+            tintColor={theme.textMuted}
+          />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
@@ -273,9 +240,9 @@ export default function AgencyDetailScreen() {
             <EmptyState
               icon="exclamationmark.triangle"
               title={t('common.somethingWentWrong')}
-              message={productsError}
+              message={productsError.message}
             />
-          ) : loading ? (
+          ) : productsQuery.isPending ? (
             <View style={styles.skeletonGrid}>
               <SkeletonCard count={4} />
             </View>
@@ -288,7 +255,7 @@ export default function AgencyDetailScreen() {
           )
         }
         ListFooterComponent={
-          loadingMore ? (
+          productsQuery.isFetchingNextPage ? (
             <ActivityIndicator style={styles.footerLoader} color={theme.accent} />
           ) : null
         }

@@ -8,10 +8,11 @@ import { KashrutBadge } from './kashrut-badge';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { API_BASE_URL } from '@/services/api';
+import { resolveMediaUrl } from '@/services/api';
 import type { Product } from '@/services/products';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { staggerDelay } from '@/utils/animation';
 import { getFreshnessTier } from '@/utils/freshness';
 import LogoImage from '@/assets/images/logo.png';
 
@@ -27,11 +28,8 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
   const scale = useSharedValue(1);
   const tier = getFreshnessTier(product.updatedAt);
 
-  const imageSource = product.imgUrl
-    ? product.imgUrl.startsWith('http')
-      ? product.imgUrl
-      : `${API_BASE_URL}${product.imgUrl}`
-    : null;
+  const imageSource = resolveMediaUrl(product.imgUrl);
+  const agencyLogoSource = resolveMediaUrl(product.agency?.logoUrl);
 
   const handlePressIn = () => {
     scale.value = withSpring(0.97, { stiffness: 400, damping: 15 });
@@ -42,11 +40,13 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(400).delay(index * 60)}>
+    <Animated.View entering={FadeIn.duration(400).delay(staggerDelay(index))}>
       <Pressable
         onPress={() => onPress(product)}
         onPressIn={handlePressIn}
-        onPressOut={handlePressOut}>
+        onPressOut={handlePressOut}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.viewProduct', { name: product.name })}>
         <Animated.View
           style={[
             styles.card,
@@ -59,7 +59,13 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
           ]}>
           <ThemedView style={styles.imageContainer}>
             {imageSource ? (
-              <Image source={{ uri: imageSource }} style={styles.image} contentFit="cover" />
+              <Image
+                source={{ uri: imageSource }}
+                style={styles.image}
+                contentFit="cover"
+                recyclingKey={String(product.id)}
+                transition={150}
+              />
             ) : (
               <ThemedView type="surfaceElevated" style={styles.imagePlaceholder}>
                 <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
@@ -71,12 +77,13 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
             <View style={styles.freshnessOverlay} pointerEvents="none">
               <FreshnessIndicator updatedAt={product.updatedAt} />
             </View>
-            {product.agencyId && product.agencyId.logoUrl && (
+            {agencyLogoSource && (
               <View style={styles.agencyOverlay} pointerEvents="none">
                 <Image
-                  source={{ uri: product.agencyId.logoUrl.startsWith('http') ? product.agencyId.logoUrl : `${API_BASE_URL}${product.agencyId.logoUrl}` }}
+                  source={{ uri: agencyLogoSource }}
                   style={styles.agencyLogo}
                   contentFit="contain"
+                  recyclingKey={String(product.id)}
                 />
               </View>
             )}

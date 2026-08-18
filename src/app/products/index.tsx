@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -26,8 +26,13 @@ import { ThemedView } from '@/components/themed-view';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useTheme } from '@/hooks/use-theme';
-import { getProducts, type Product } from '@/services/products';
-import { getCountriesWithAgencies, type CountryWithAgencies } from '@/services/countries';
+import {
+  flattenProductPages,
+  useCountriesQuery,
+  useProductsQuery,
+} from '@/hooks/use-queries';
+import { track } from '@/services/telemetry';
+import type { Product } from '@/services/products';
 import {
   CONTINENT_TRANSLATION_KEYS,
   getCountryTranslationKey,
@@ -70,57 +75,26 @@ export default function ProductsScreen() {
   const [pendingCountryIds, setPendingCountryIds] = useState<Set<number>>(new Set());
   const [countrySearch, setCountrySearch] = useState('');
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [countries, setCountries] = useState<CountryWithAgencies[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Server state lives in React Query: it owns cancellation (a superseded
+  // search aborts automatically), retry, background refetch and the persisted
+  // offline cache. The screen only holds the filter inputs.
+  const filters = {
+    name: debouncedSearch.trim() || undefined,
+    category: selectedCategory ?? undefined,
+    countryId: selectedCountryIds.size > 0 ? [...selectedCountryIds].sort((a, b) => a - b) : undefined,
+  };
 
-  const loadProducts = useCallback(
-    async (pageToLoad: number, shouldRefresh = false) => {
-      try {
-        if (shouldRefresh) {
-          setRefreshing(true);
-        } else if (pageToLoad === 1) {
-          setLoading(true);
-        } else {
-          setLoadingMore(true);
-        }
+  const productsQuery = useProductsQuery(filters);
+  const countriesQuery = useCountriesQuery();
 
-        setError(null);
+  const products = flattenProductPages(productsQuery.data?.pages);
+  const countries = countriesQuery.data ?? [];
+  const totalResults = productsQuery.data?.pages[0]?.total ?? 0;
 
-        const response = await getProducts({
-          page: pageToLoad,
-          name: debouncedSearch,
-          category: selectedCategory ?? undefined,
-          countryId: selectedCountryIds.size > 0 ? [...selectedCountryIds] : undefined,
-        });
-
-        if (pageToLoad === 1 || shouldRefresh) {
-          setProducts(response.data);
-        } else {
-          setProducts(prev => [...prev, ...response.data]);
-        }
-
-        setHasMore(response.page < response.lastPage);
-        setPage(pageToLoad);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : t('common.somethingWentWrong'));
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        setRefreshing(false);
-      }
-    },
-    [debouncedSearch, selectedCategory, selectedCountryIds, t]
-  );
-
-  useEffect(() => {
-    loadProducts(1);
-  }, [loadProducts]);
+  // Cached pages are rendered while a refetch runs, so the skeleton only shows
+  // when there is genuinely nothing to display yet.
+  const showSkeleton = productsQuery.isPending;
+  const error = productsQuery.isError && products.length === 0 ? productsQuery.error : null;
 
   // Sync the `name` route param into the search field when another screen
   // (Discover search, barcode scan) navigates here while this tab is mounted.
@@ -130,20 +104,30 @@ export default function ProductsScreen() {
     }
   }, [params.name]);
 
+  // Reported once per settled query, not per render. The term itself never
+  // leaves the device - its length and the result count are what answer
+  // "is the catalog covering what people look for".
+  const reportedSearchRef = useRef<string | null>(null);
   useEffect(() => {
-    getCountriesWithAgencies()
-      .then(setCountries)
-      .catch(err => console.error('Failed to load countries', err));
-  }, []);
+    const term = debouncedSearch.trim();
+    if (!term || productsQuery.isPending || productsQuery.isError) return;
+    if (reportedSearchRef.current === term) return;
+    reportedSearchRef.current = term;
+
+    track('search_performed', {
+      source: 'products',
+      query_length: term.length,
+      results_count: totalResults,
+    });
+    if (totalResults === 0) {
+      track('search_zero_results', { source: 'products', query_length: term.length });
+    }
+  }, [debouncedSearch, productsQuery.isPending, productsQuery.isError, totalResults]);
 
   function handleLoadMore() {
-    if (!loading && !loadingMore && hasMore) {
-      loadProducts(page + 1);
+    if (productsQuery.hasNextPage && !productsQuery.isFetchingNextPage) {
+      void productsQuery.fetchNextPage();
     }
-  }
-
-  function handleRefresh() {
-    loadProducts(1, true);
   }
 
   function handleProductPress(product: Product) {
@@ -161,6 +145,10 @@ export default function ProductsScreen() {
     setSelectedCategory(pendingCategory);
     setSelectedCountryIds(pendingCountryIds);
     setFilterSheetOpen(false);
+    track('filter_applied', {
+      countries_count: pendingCountryIds.size,
+      has_category: pendingCategory !== null,
+    });
   }
 
   function resetFilters() {
@@ -177,39 +165,26 @@ export default function ProductsScreen() {
     });
   }
 
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (selectedCategory) count += 1;
-    if (selectedCountryIds.size > 0) count += selectedCountryIds.size;
-    return count;
-  }, [selectedCategory, selectedCountryIds]);
+  // No manual memoization anywhere below: `experiments.reactCompiler` is on and
+  // the compiler inserts it at build time. Hand-written useMemo/useCallback can
+  // fight its analysis, and AGENTS.md forbids them without a profiling result.
+  const activeFilterCount =
+    (selectedCategory ? 1 : 0) + selectedCountryIds.size;
 
-  const filteredProducts = products;
+  const allCountries: CountryOption[] = countries
+    .map(c => ({
+      id: c.id,
+      code: c.code,
+      continent: c.continent as Continent,
+    }))
+    .sort((a, b) => (a.code ?? '').localeCompare(b.code ?? ''));
 
-  const allCountries = useMemo<CountryOption[]>(
-    () =>
-      countries
-        .map(c => ({
-          id: c.id,
-          code: c.code,
-          continent: c.continent as Continent,
-        }))
-        .sort((a, b) => (a.code ?? '').localeCompare(b.code ?? '')),
-    [countries]
-  );
+  const countryDisplayName = (country: CountryOption) =>
+    t(getCountryTranslationKey(country.code), (country.code ?? '').toUpperCase());
 
-  const countryDisplayName = useCallback(
-    (country: CountryOption) =>
-      t(getCountryTranslationKey(country.code), (country.code ?? '').toUpperCase()),
-    [t]
-  );
+  const continentGroups: ContinentGroup[] = groupCountriesByContinent(allCountries);
 
-  const continentGroups = useMemo<ContinentGroup[]>(
-    () => groupCountriesByContinent(allCountries),
-    [allCountries]
-  );
-
-  const filteredContinentGroups = useMemo(() => {
+  const filteredContinentGroups = (() => {
     const query = countrySearch.trim().toLowerCase();
     if (!query) return continentGroups;
     return continentGroups
@@ -221,9 +196,9 @@ export default function ProductsScreen() {
         }),
       }))
       .filter(group => group.countries.length > 0);
-  }, [continentGroups, countrySearch, t]);
+  })();
 
-  const activeChips = useMemo(() => {
+  const activeChips = (() => {
     const chips: { id: string; label: string; onRemove?: () => void; isMore?: boolean }[] = [];
     if (selectedCategory) {
       const cat = COMMON_CATEGORIES.find(c => c.value === selectedCategory);
@@ -257,7 +232,7 @@ export default function ProductsScreen() {
       });
     }
     return chips;
-  }, [selectedCategory, selectedCountryIds, allCountries, t, countryDisplayName]);
+  })();
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
@@ -278,8 +253,11 @@ export default function ProductsScreen() {
           onPress={openFilterSheet}
           tint={theme.text}
           accent={theme.accent}
+          accentForeground={theme.accentForeground}
           surface={theme.surface}
           border={theme.border}
+          label={t('common.a11y.openFilters')}
+          hint={t('common.filters.activeCount', { count: activeFilterCount })}
         />
       </View>
 
@@ -299,6 +277,7 @@ export default function ProductsScreen() {
                 primaryForeground={theme.primaryForeground}
                 textInverse={theme.textInverse}
                 dismissable={Boolean(item.onRemove)}
+                removeHint={t('common.a11y.removeFilter', { name: item.label })}
               />
             )}
           />
@@ -306,12 +285,16 @@ export default function ProductsScreen() {
       )}
 
       {error ? (
-        <EmptyState icon="exclamationmark.triangle" title={t('common.somethingWentWrong')} message={error} />
-      ) : loading ? (
+        <EmptyState
+          icon="exclamationmark.triangle"
+          title={t('common.somethingWentWrong')}
+          message={error.message}
+        />
+      ) : showSkeleton ? (
         <View style={styles.grid}>
           <SkeletonCard count={6} />
         </View>
-      ) : filteredProducts.length === 0 ? (
+      ) : products.length === 0 ? (
         <EmptyState
           icon="magnifyingglass"
           title={t('products.noProductsFound')}
@@ -319,7 +302,7 @@ export default function ProductsScreen() {
         />
       ) : (
         <FlatList
-          data={filteredProducts}
+          data={products}
           keyExtractor={item => String(item.id)}
           numColumns={2}
           columnWrapperStyle={styles.row}
@@ -328,14 +311,22 @@ export default function ProductsScreen() {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.textMuted} />
+            <RefreshControl
+              refreshing={productsQuery.isRefetching && !productsQuery.isFetchingNextPage}
+              onRefresh={() => void productsQuery.refetch()}
+              tintColor={theme.textMuted}
+            />
           }
           renderItem={({ item, index }) => (
             <View style={styles.cardWrapper}>
               <ProductCard product={item} index={index} onPress={handleProductPress} />
             </View>
           )}
-          ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.loader} color={theme.accent} /> : null}
+          ListFooterComponent={
+            productsQuery.isFetchingNextPage ? (
+              <ActivityIndicator style={styles.loader} color={theme.accent} />
+            ) : null
+          }
         />
       )}
 
@@ -349,7 +340,12 @@ export default function ProductsScreen() {
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(200)}
           style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setFilterSheetOpen(false)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setFilterSheetOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
+          />
           <Animated.View
             entering={SlideInDown.duration(280).easing(Easing.out(Easing.cubic))}
             exiting={SlideOutDown.duration(220).easing(Easing.in(Easing.cubic))}
@@ -366,7 +362,11 @@ export default function ProductsScreen() {
 
             <View style={styles.sheetHeader}>
               <ThemedText type="h3">{t('products.filtersTitle')}</ThemedText>
-              <Pressable onPress={resetFilters} hitSlop={8}>
+              <Pressable
+                onPress={resetFilters}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('products.reset')}>
                 <ThemedText type="smallMedium" themeColor="accent">
                   {t('products.reset')}
                 </ThemedText>
@@ -401,6 +401,8 @@ export default function ProductsScreen() {
                         t={t}
                         getCountryDisplayName={countryDisplayName}
                         accent={theme.accent}
+                        accentForeground={theme.accentForeground}
+                        textInverse={theme.textInverse}
                         textMuted={theme.textMuted}
                         border={theme.borderSubtle}
                       />
@@ -413,6 +415,8 @@ export default function ProductsScreen() {
             <View style={styles.sheetFooter}>
               <Pressable
                 onPress={() => setFilterSheetOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.cancel')}
                 style={[styles.footerButton, { backgroundColor: theme.background, borderColor: theme.border }]}>
                 <ThemedText type="bodyMedium" themeColor="text">
                   {t('common.cancel')}
@@ -420,6 +424,8 @@ export default function ProductsScreen() {
               </Pressable>
               <Pressable
                 onPress={applyFilters}
+                accessibilityRole="button"
+                accessibilityLabel={t('products.apply')}
                 style={[styles.footerButton, { backgroundColor: theme.accent }]}>
                 <ThemedText type="bodyMedium" themeColor="primaryForeground">
                   {t('products.apply')}
@@ -438,14 +444,30 @@ interface FilterTriggerProps {
   onPress: () => void;
   tint: string;
   accent: string;
+  accentForeground: string;
   surface: string;
   border: string;
+  label: string;
+  hint: string;
 }
 
-function FilterTrigger({ activeCount, onPress, tint, accent, surface, border }: FilterTriggerProps) {
+function FilterTrigger({
+  activeCount,
+  onPress,
+  tint,
+  accent,
+  accentForeground,
+  surface,
+  border,
+  label,
+  hint,
+}: FilterTriggerProps) {
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={activeCount > 0 ? hint : undefined}
       style={({ pressed }) => [
         styles.filterTrigger,
         {
@@ -464,7 +486,7 @@ function FilterTrigger({ activeCount, onPress, tint, accent, surface, border }: 
         <View style={[styles.badge, { backgroundColor: accent }]}>
           <ThemedText
             type="label"
-            style={[styles.badgeText, { color: '#1E2D3D' }]}>
+            style={[styles.badgeText, { color: accentForeground }]}>
             {activeCount}
           </ThemedText>
         </View>
@@ -480,17 +502,31 @@ interface ActiveFilterChipProps {
   primaryForeground: string;
   textInverse: string;
   dismissable: boolean;
+  removeHint: string;
 }
 
-function ActiveFilterChip({ label, onPress, accent, primaryForeground, textInverse, dismissable }: ActiveFilterChipProps) {
+function ActiveFilterChip({
+  label,
+  onPress,
+  accent,
+  primaryForeground,
+  textInverse,
+  dismissable,
+  removeHint,
+}: ActiveFilterChipProps) {
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={dismissable ? removeHint : undefined}
       style={({ pressed }) => [
         styles.activeChip,
         { backgroundColor: accent, opacity: pressed ? 0.85 : 1 },
       ]}>
-      <ThemedText type="smallMedium" style={{ color: dismissable ? primaryForeground : textInverse }}>
+      <ThemedText
+        type="smallMedium"
+        style={{ color: dismissable ? primaryForeground : textInverse }}>
         {label}
       </ThemedText>
       {dismissable && (
@@ -523,13 +559,30 @@ interface ContinentRowProps {
   t: (key: string, options?: Record<string, unknown>) => string;
   getCountryDisplayName: (country: CountryOption) => string;
   accent: string;
+  accentForeground: string;
+  textInverse: string;
   textMuted: string;
   border: string;
 }
 
-function ContinentRow({ group, selectedIds, onToggle, t, getCountryDisplayName, accent, textMuted, border }: ContinentRowProps) {
+function ContinentRow({
+  group,
+  selectedIds,
+  onToggle,
+  t,
+  getCountryDisplayName,
+  accent,
+  accentForeground,
+  textInverse,
+  textMuted,
+  border,
+}: ContinentRowProps) {
   const [open, setOpen] = useState(false);
   const selectedCount = group.countries.filter(c => selectedIds.has(c.id)).length;
+  const continentName = t(CONTINENT_TRANSLATION_KEYS[group.continent]);
+  const continentLabel = t(open ? 'common.a11y.collapseSection' : 'common.a11y.expandSection', {
+    name: continentName,
+  });
   const hasSelection = selectedCount > 0;
   const hasAutoOpened = useRef(false);
 
@@ -544,13 +597,21 @@ function ContinentRow({ group, selectedIds, onToggle, t, getCountryDisplayName, 
     <View style={[styles.continentGroup, { borderColor: border }]}>
       <Pressable
         onPress={() => setOpen(prev => !prev)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={continentLabel}
         style={({ pressed }) => [styles.continentHeader, pressed && { opacity: 0.7 }]}>
         <View style={styles.continentHeaderLeft}>
           <ThemedText type="bodyMedium" themeColor="text">
-            {t(CONTINENT_TRANSLATION_KEYS[group.continent])}
+            {continentName}
           </ThemedText>
           <View style={[styles.continentBadge, { backgroundColor: hasSelection ? accent : textMuted }]}>
-            <ThemedText type="label" style={[styles.continentBadgeText, { color: hasSelection ? '#1E2D3D' : '#FFFFFF' }]}>
+            <ThemedText
+              type="label"
+              style={[
+                styles.continentBadgeText,
+                { color: hasSelection ? accentForeground : textInverse },
+              ]}>
               {selectedCount}/{group.countries.length}
             </ThemedText>
           </View>
@@ -560,7 +621,7 @@ function ContinentRow({ group, selectedIds, onToggle, t, getCountryDisplayName, 
           size={16}
           weight="semibold"
           tintColor={textMuted}
-          style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}
+          style={open ? styles.chevronOpen : styles.chevronClosed}
         />
       </Pressable>
       {open && (
@@ -732,6 +793,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  chevronClosed: {
+    transform: [{ rotate: '0deg' }],
+  },
+  chevronOpen: {
+    transform: [{ rotate: '180deg' }],
   },
   continentBadgeText: {
     fontSize: 11,

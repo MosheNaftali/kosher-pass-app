@@ -1,29 +1,56 @@
-import { apiGet } from './api';
-import type { Agency } from './agencies';
+import { apiGet, type ApiRequestOptions } from './api';
+import {
+  certificateSchema,
+  paginatedCertificatesSchema,
+  type Certificate,
+  type CertificateStatus,
+  type PaginatedCertificates,
+} from './schemas';
 
-export type CertificateStatus = 'valid' | 'expired' | 'revoked';
+export type { Certificate, CertificateStatus, PaginatedCertificates };
 
-export interface Certificate {
-  id: number;
-  agencyId: string;
-  agency: Agency | null;
-  certificateCode: string | null;
-  status: CertificateStatus;
-  validFrom: string | null;
-  validUntil: string | null;
-  scanUrl: string | null;
-  metadata: Record<string, unknown> | null;
-  createdAt: string;
-  updatedAt: string;
+export interface CertificateFilters {
+  page?: number;
+  agencyId?: string[];
+  status?: CertificateStatus;
 }
 
-export async function getCertificates(): Promise<Certificate[]> {
-  return apiGet<Certificate[]>('/certificates');
+export function buildCertificatesQuery(filters: CertificateFilters): string {
+  const params = new URLSearchParams();
+
+  if (filters.page && filters.page > 1) {
+    params.set('page', String(filters.page));
+  }
+  if (filters.agencyId?.length) {
+    for (const id of filters.agencyId) {
+      params.append('agencyId', id);
+    }
+  }
+  if (filters.status) {
+    params.set('status', filters.status);
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : '';
 }
 
-export async function getCertificateById(id: number): Promise<Certificate | null> {
+export async function getCertificates(
+  filters: CertificateFilters = {},
+  options?: ApiRequestOptions
+): Promise<PaginatedCertificates> {
+  return apiGet(
+    '/certificates' + buildCertificatesQuery(filters),
+    paginatedCertificatesSchema,
+    options
+  );
+}
+
+export async function getCertificateById(
+  id: number,
+  options?: ApiRequestOptions
+): Promise<Certificate | null> {
   try {
-    return await apiGet<Certificate>(`/certificates/${id}`);
+    return await apiGet(`/certificates/${id}`, certificateSchema, options);
   } catch (error) {
     if ((error as { status?: number }).status === 404) {
       return null;

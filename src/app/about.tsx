@@ -14,11 +14,18 @@ import { useTranslation } from 'react-i18next';
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Config } from '@/constants/config';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { isSafeExternalUrl } from '@/services/api';
 
-const DEVELOPER_EMAIL = 'hello@example.com';
-const DEVELOPER_WEBSITE = 'https://example.com';
+// Contact details come from the environment (see .env.example). When a value is
+// not configured its row is hidden entirely - shipping a placeholder address
+// that silently swallows user feedback is worse than showing nothing.
+const DEVELOPER_EMAIL = Config.supportEmail;
+const DEVELOPER_WEBSITE = isSafeExternalUrl(Config.developerWebsite)
+  ? Config.developerWebsite
+  : '';
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -31,6 +38,7 @@ export default function AboutScreen() {
   const currentYear = new Date().getFullYear();
 
   function handleEmailPress(subject: string) {
+    if (!DEVELOPER_EMAIL) return;
     const url = `mailto:${DEVELOPER_EMAIL}?subject=${encodeURIComponent(subject)}`;
     Linking.openURL(url).catch(() => {
       // Mail client unavailable - silently no-op on web
@@ -43,6 +51,8 @@ export default function AboutScreen() {
         <Pressable
           onPress={() => router.back()}
           hitSlop={Spacing.three}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.a11y.goBack')}
           style={styles.backButton}>
           <SymbolView
             name="chevron.left"
@@ -117,8 +127,12 @@ export default function AboutScreen() {
             {t('about.contactSubtitle')}
           </ThemedText>
 
+          {DEVELOPER_EMAIL ? (
           <Pressable
             onPress={() => handleEmailPress(t('about.feedbackButton'))}
+            accessibilityRole="button"
+            accessibilityLabel={t('about.feedbackButton')}
+            accessibilityHint={t('about.feedbackDescription')}
             style={({ pressed }) => [
               styles.contactCard,
               { borderColor: theme.borderSubtle, opacity: pressed ? 0.7 : 1 },
@@ -151,11 +165,16 @@ export default function AboutScreen() {
               size={16}
             />
           </Pressable>
+          ) : null}
 
+          {DEVELOPER_WEBSITE ? (
           <ExternalLink
             href={DEVELOPER_WEBSITE}
             asChild>
             <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={t('about.servicesButton')}
+              accessibilityHint={t('about.servicesDescription')}
               style={({ pressed }) => [
                 styles.contactCard,
                 { borderColor: theme.borderSubtle, opacity: pressed ? 0.7 : 1 },
@@ -189,6 +208,7 @@ export default function AboutScreen() {
               />
             </Pressable>
           </ExternalLink>
+          ) : null}
         </View>
 
         <ThemedText
