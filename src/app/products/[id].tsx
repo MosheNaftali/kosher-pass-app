@@ -9,7 +9,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ExternalLink } from '@/components/external-link';
@@ -20,9 +19,10 @@ import { FreshnessIndicatorDetailed } from '@/components/freshness-indicator';
 import { KashrutBadge } from '@/components/kashrut-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Shadows, Spacing } from '@/constants/theme';
+import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import { useProductQuery } from '@/hooks/use-queries';
 import { isSafeExternalUrl, resolveMediaUrl } from '@/services/api';
 import { track } from '@/services/telemetry';
@@ -30,11 +30,16 @@ import { getCountryTranslationKey } from '@/utils/countries';
 import { getFreshnessTier } from '@/utils/freshness';
 import LogoImage from '@/assets/images/logo.png';
 
+// Anchored footer: vertical padding + the action button's own height. Kept in
+// sync with `styles.footer` / `styles.actionButton` so the scroll content can
+// reserve room for it.
+const FooterHeight = Spacing.three * 2 + Spacing.three * 2 + 24;
+
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  const { contentTopInset } = useTopInset();
   const { t } = useTranslation();
   const { addToShoppingList, removeFromShoppingList, isInShoppingList } = useSavedItems();
 
@@ -88,7 +93,7 @@ export default function ProductDetailScreen() {
 
   if (loading) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
         <ActivityIndicator style={styles.loader} color={theme.accent} size="large" />
       </ThemedView>
     );
@@ -96,7 +101,7 @@ export default function ProductDetailScreen() {
 
   if (notFound || loadError || !product) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
         <EmptyState
           icon="exclamationmark.triangle"
           title={t('common.oops')}
@@ -154,19 +159,27 @@ export default function ProductDetailScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <ThemedView style={styles.container}>
       <Pressable
         onPress={() => router.back()}
-        style={styles.backButton}
+        style={[
+          styles.backButton,
+          { top: contentTopInset + Spacing.two, backgroundColor: theme.surface },
+        ]}
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.goBack')}>
         <SymbolView name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
       </Pressable>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <ThemedView style={styles.imageContainer}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: contentTopInset, paddingBottom: Layout.tabBarHeight + FooterHeight + Spacing.six },
+        ]}>
+        <ThemedView type="surfaceElevated" style={styles.imageContainer}>
           {imageSource ? (
-            <Image source={{ uri: imageSource }} style={styles.image} contentFit="cover" />
+            <Image source={{ uri: imageSource }} style={styles.image} contentFit="contain" />
           ) : (
             <ThemedView type="surfaceElevated" style={styles.imagePlaceholder}>
               <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
@@ -236,42 +249,14 @@ export default function ProductDetailScreen() {
           </View>
         </ThemedView>
 
-        {product.agency && (
+        {product.notes && (
           <ThemedView type="surface" style={styles.section}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              {t('products.certifyingAgency')}
+              {t('products.notes')}
             </ThemedText>
-            <Pressable
-              onPress={handleAgencyPress}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.a11y.viewAgency', {
-                name: product.agency.name,
-              })}>
-              <View style={styles.agencyRow}>
-                {agencyLogoSource ? (
-                  <Image
-                    source={{ uri: agencyLogoSource }}
-                    style={styles.agencyLogo}
-                    contentFit="contain"
-                  />
-                ) : (
-                  <View style={[styles.agencyLogo, styles.agencyLogoPlaceholder, { backgroundColor: theme.border }]}>
-                    <ThemedText type="bodyBold" themeColor="textMuted">
-                      {product.agency.name.charAt(0)}
-                    </ThemedText>
-                  </View>
-                )}
-                <View style={styles.agencyInfo}>
-                  <ThemedText type="bodyBold">{product.agency.name}</ThemedText>
-                  {product.agency.country && (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {t(getCountryTranslationKey(product.agency.country.code), (product.agency.country.code ?? '').toUpperCase())}
-                    </ThemedText>
-                  )}
-                </View>
-                <SymbolView name="chevron.right" tintColor={theme.textMuted} size={16} />
-              </View>
-            </Pressable>
+            <ThemedText type="body" themeColor="textSecondary">
+              {product.notes}
+            </ThemedText>
           </ThemedView>
         )}
 
@@ -315,19 +300,49 @@ export default function ProductDetailScreen() {
           </ThemedView>
         )}
 
-        {product.notes && (
+        {product.agency && (
           <ThemedView type="surface" style={styles.section}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              {t('products.notes')}
+              {t('products.certifyingAgency')}
             </ThemedText>
-            <ThemedText type="body" themeColor="textSecondary">
-              {product.notes}
-            </ThemedText>
+            <Pressable
+              onPress={handleAgencyPress}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.a11y.viewAgency', {
+                name: product.agency.name,
+              })}>
+              <View style={styles.agencyRow}>
+                {agencyLogoSource ? (
+                  <Image
+                    source={{ uri: agencyLogoSource }}
+                    style={styles.agencyLogo}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <View style={[styles.agencyLogo, styles.agencyLogoPlaceholder, { backgroundColor: theme.border }]}>
+                    <ThemedText type="bodyBold" themeColor="textMuted">
+                      {product.agency.name.charAt(0)}
+                    </ThemedText>
+                  </View>
+                )}
+                <View style={styles.agencyInfo}>
+                  <ThemedText type="bodyBold">{product.agency.name}</ThemedText>
+                  {product.agency.country && (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t(getCountryTranslationKey(product.agency.country.code), (product.agency.country.code ?? '').toUpperCase())}
+                    </ThemedText>
+                  )}
+                </View>
+                <SymbolView name="chevron.right" tintColor={theme.textMuted} size={16} />
+              </View>
+            </Pressable>
           </ThemedView>
         )}
       </ScrollView>
 
-      <ThemedView type="surface" style={[styles.footer, { paddingBottom: insets.bottom + Spacing.four }]}>
+      <ThemedView
+        type="surface"
+        style={[styles.footer, { borderTopColor: theme.borderSubtle }]}>
         <Pressable
           onPress={handleToggleList}
           accessibilityRole="button"
@@ -356,23 +371,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 120,
+    flexGrow: 1,
   },
   loader: {
     flex: 1,
   },
   backButton: {
     position: 'absolute',
-    top: 16,
     left: Spacing.four,
     zIndex: 10,
     padding: Spacing.two,
     borderRadius: Radius.round,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    ...Shadows.sm,
   },
   imageContainer: {
     width: '100%',
     height: 320,
+    justifyContent: 'center',
   },
   image: {
     width: '100%',
@@ -468,13 +483,13 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    bottom: 0,
+    // Sits directly on top of the floating tab bar.
+    bottom: Layout.tabBarHeight,
     left: 0,
     right: 0,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    borderTopWidth: 1,
-    borderTopColor: 'transparent',
+    paddingVertical: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
     ...Shadows.md,
   },
   actionButton: {

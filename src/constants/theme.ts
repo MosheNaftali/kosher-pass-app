@@ -161,18 +161,27 @@ export const Shadows = {
   },
 };
 
-// Height reserved for the anchored AdMob banner (standard 320x50) on native
-// platforms. The web build renders an AdBanner stub, so it reserves nothing.
-const adBannerHeight = Platform.select({ ios: 50, android: 50, default: 0 }) ?? 0;
+// Height of the AdMob banner slot (standard 320x50) on native platforms. The
+// web build has no AdMob SDK, so it reserves nothing.
+//
+// The banner bar is anchored at the *top* of the app, above every screen, spans
+// the full width, and is laid out in flow (see `AdBanner` / `AppTabs`) - so
+// screens are pushed down by it rather than overlapped. The bar measures itself
+// at runtime, so this is only what the slot reserves until the first layout
+// pass; keeping the two in sync is not required for correctness.
+const adBannerHeight = Platform.select({ ios: 60, android: 60, default: 0 }) ?? 0;
+
+// Height of the floating tab bar. Screens that anchor their own chrome (a
+// footer CTA, for example) sit on top of this, and every scroll view reserves
+// it as bottom padding so its last row is not trapped under the bar.
+const tabBarHeight = Platform.select({ ios: 80, android: 90 }) ?? 0;
 
 export const Layout = {
-  // Bottom padding screens must reserve: tab bar height + ad banner height.
-  bottomTabInset: (Platform.select({ ios: 80, android: 90 }) ?? 0) + adBannerHeight,
+  tabBarHeight,
   adBannerHeight,
   maxContentWidth: 800,
   screenPadding: Spacing.four,
 } as const;
 
-export const BottomTabInset = Layout.bottomTabInset;
 export const AdBannerHeight = Layout.adBannerHeight;
 export const MaxContentWidth = Layout.maxContentWidth;

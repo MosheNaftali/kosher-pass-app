@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from './themed-text';
 
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 
 /**
  * Tells the user the app is showing cached data.
@@ -22,7 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 export function OfflineBanner() {
   const theme = useTheme();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+  const { contentTop } = useTopInset();
   const isRestoring = useIsRestoring();
   const [isOnline, setIsOnline] = useState(() => onlineManager.isOnline());
 
@@ -38,7 +38,7 @@ export function OfflineBanner() {
     <Animated.View
       entering={FadeInUp.duration(200)}
       exiting={FadeOutUp.duration(200)}
-      style={[styles.container, { top: insets.top + Spacing.two }]}
+      style={[styles.container, { top: contentTop + Spacing.two }]}
       accessibilityRole="alert"
       accessibilityLiveRegion="polite">
       <View style={[styles.banner, { backgroundColor: theme.warning }]}>

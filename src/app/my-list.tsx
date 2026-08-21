@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { AgencyRow } from '@/components/agency-row';
@@ -21,6 +20,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useSavedItems, type ShoppingListItem } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import { useFavoriteAgenciesQuery, useProductsByIdsQuery } from '@/hooks/use-queries';
 import { resolveMediaUrl } from '@/services/api';
 import type { Agency } from '@/services/agencies';
@@ -34,7 +34,7 @@ type TabType = 'shopping' | 'agencies';
 export default function MyListScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  const { contentTopInset } = useTopInset();
   const { t } = useTranslation();
   const {
     shoppingList,
@@ -100,7 +100,7 @@ export default function MyListScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
       <View style={styles.header}>
         <ThemedText type="hero">{t('mylist.heroTitle')}</ThemedText>
       </View>
@@ -276,7 +276,7 @@ function ShoppingListRow({
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.viewProduct', { name: product.name })}>
         {imageSource ? (
-          <Image source={{ uri: imageSource }} style={styles.productImage} contentFit="cover" />
+          <Image source={{ uri: imageSource }} style={styles.productImage} contentFit="contain" />
         ) : (
           <ThemedView type="surfaceElevated" style={styles.productImagePlaceholder}>
             <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
-    paddingBottom: Layout.bottomTabInset + Spacing.six,
+    paddingBottom: Layout.tabBarHeight + Spacing.six,
     gap: Spacing.three,
   },
   row: {

@@ -158,6 +158,56 @@ export const countryWithAgenciesSchema = z.object({
   agencies: z.array(agencyWireSchema.pick({ id: true, name: true })),
 });
 
+/** Absent and null both collapse to `null`; a real number passes through. */
+const nullableNumber = z
+  .number()
+  .nullish()
+  .transform(value => (value === undefined ? null : value));
+
+export const alertSeveritySchema = z.enum(['critical', 'warning', 'info']);
+export const alertTargetTypeSchema = z.enum(['none', 'product', 'agency', 'url']);
+
+export const alertSourceSchema = z.enum(['scraper', 'manual']);
+
+/**
+ * One alert as the server serves it.
+ *
+ * Every alert is something a certifying agency published on its own channel -
+ * the worker scrapes each agency's notices page and stores what it finds. The
+ * app does not infer alerts from the catalog it happens to hold; if no agency
+ * said it, it is not in this feed.
+ *
+ * `agencyId` is the *publisher*, and is what scopes the feed: the Alerts tab
+ * asks only for the agencies the user follows. It is unrelated to
+ * `targetAgencyId`, which is where tapping the alert navigates.
+ *
+ * `targetProductId`/`targetAgencyId` are plain nullable ids on the wire (the
+ * api flattens its TypeORM relation columns down to a bare id - see
+ * `AlertsService.toResponse` on the server), not nested Product/Agency
+ * objects, so no anti-corruption rename is needed here.
+ */
+export const alertSchema = z.object({
+  id: z.number(),
+  agencyId: nullableString,
+  source: alertSourceSchema,
+  sourceUrl: nullableString,
+  publishedAt: nullableIsoDateString,
+  title: z.string(),
+  description: z.string(),
+  imageUrl: nullableString,
+  severity: alertSeveritySchema,
+  targetType: alertTargetTypeSchema,
+  targetProductId: nullableNumber,
+  targetAgencyId: nullableString,
+  targetUrl: nullableString,
+  startsAt: nullableIsoDateString,
+  expiresAt: nullableIsoDateString,
+  priority: z.number(),
+  active: z.boolean(),
+  createdAt: isoDateString,
+  updatedAt: isoDateString,
+});
+
 /** Envelope shared by every paginated endpoint. */
 function paginated<T extends z.ZodTypeAny>(item: T) {
   return z.object({
@@ -182,6 +232,10 @@ export type PaginatedAgencies = z.infer<typeof paginatedAgenciesSchema>;
 export type PaginatedCertificates = z.infer<typeof paginatedCertificatesSchema>;
 export type CountryWithAgencies = z.infer<typeof countryWithAgenciesSchema>;
 export type CountryRef = z.infer<typeof countryRefSchema>;
+export type AlertSeverity = z.infer<typeof alertSeveritySchema>;
+export type AlertTargetType = z.infer<typeof alertTargetTypeSchema>;
+export type AlertSource = z.infer<typeof alertSourceSchema>;
+export type AgencyAlert = z.infer<typeof alertSchema>;
 
 /**
  * A paginated list where individual bad rows are dropped instead of failing the

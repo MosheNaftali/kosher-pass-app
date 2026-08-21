@@ -21,6 +21,8 @@ export interface AppConfig {
   adsEnabled: boolean;
   admobBannerUnitIdIos: string;
   admobBannerUnitIdAndroid: string;
+  /** Seconds between in-app banner refreshes. `0` defers to AdMob auto-refresh. */
+  admobBannerRefreshSeconds: number;
   sentryDsn: string;
   posthogApiKey: string;
   posthogHost: string;
@@ -38,6 +40,11 @@ function readBoolean(key: string, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function readNumber(key: string, fallback: number): number {
+  const value = extra[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
 function readEnvironment(): AppEnvironment {
   const value = extra.environment;
   return value === 'production' || value === 'staging' ? value : 'development';
@@ -51,6 +58,7 @@ export const Config: AppConfig = {
   adsEnabled: readBoolean('adsEnabled', false),
   admobBannerUnitIdIos: readString('admobBannerUnitIdIos', ''),
   admobBannerUnitIdAndroid: readString('admobBannerUnitIdAndroid', ''),
+  admobBannerRefreshSeconds: readNumber('admobBannerRefreshSeconds', 0),
   sentryDsn: readString('sentryDsn', ''),
   posthogApiKey: readString('posthogApiKey', ''),
   posthogHost: readString('posthogHost', 'https://eu.i.posthog.com'),

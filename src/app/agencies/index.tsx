@@ -8,7 +8,6 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { AgencyRow } from '@/components/agency-row';
@@ -20,6 +19,7 @@ import { Layout, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import { flattenAgencyPages, useAgenciesQuery } from '@/hooks/use-queries';
 import type { Agency } from '@/services/agencies';
 import { track } from '@/services/telemetry';
@@ -38,7 +38,7 @@ const MAX_AUTO_PAGES = 10;
 export default function AgenciesScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  const { contentTopInset } = useTopInset();
   const { t } = useTranslation();
   const { toggleFavoriteAgency, isFavoriteAgency } = useSavedItems();
 
@@ -89,7 +89,7 @@ export default function AgenciesScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
       <View style={styles.header}>
         <ThemedText type="hero">{t('agencies.heroTitle')}</ThemedText>
         <ThemedText type="body" themeColor="textSecondary">
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: Spacing.four,
-    paddingBottom: Layout.bottomTabInset + Spacing.six,
+    paddingBottom: Layout.tabBarHeight + Spacing.six,
     paddingTop: Spacing.two,
   },
   sectionHeader: {

@@ -86,8 +86,12 @@ app/
 └── src/
     ├── app/                        # File-based routes (Expo Router)
     │   ├── _layout.tsx             # Root layout — ThemeProvider + SavedItemsProvider + AppTabs
-    │   ├── index.tsx               # Discover / Home screen (route: /)
-    │   ├── alerts.tsx              # Full alerts list (route: /alerts)
+    │   ├── index.tsx               # Entry route (/) - redirects to /alerts while Discover is hidden
+    │   ├── discover.tsx            # Discover / Home screen (route: /discover) - tab hidden, see DISCOVER_ENABLED
+    │   ├── alerts/                 # Alerts stack
+    │   │   ├── _layout.tsx         # Stack layout
+    │   │   ├── index.tsx           # Alerts tab (route: /alerts) - landing screen; hosts the About entry point
+    │   │   └── about.tsx           # About screen (route: /alerts/about)
     │   ├── scan.tsx                # Barcode scanner (route: /scan)
     │   ├── my-list.tsx             # Shopping list + favorite agencies (route: /my-list)
     │   ├── products/               # Products stack
@@ -101,8 +105,8 @@ app/
     ├── components/                 # Reusable UI components
     │   ├── ui/                     # Generic design-system components
     │   │   └── collapsible.tsx     # Animated accordion with chevron
-    │   ├── app-tabs.tsx            # Custom bottom tab bar with elevated Scan button; hosts the AdBanner
-    │   ├── ad-banner.tsx           # Anchored AdMob banner (native); hidden on /scan
+    │   ├── app-tabs.tsx            # Custom bottom tab bar with elevated Scan button; hosts the top AdBanner + OfflineBanner
+    │   ├── ad-banner.tsx           # Full-width AdMob banner anchored at the TOP of the app (native); hidden on /scan
     │   ├── ad-banner.web.tsx       # Web stub for AdBanner (renders nothing)
     │   ├── external-link.tsx       # Link that opens in in-app browser on native
     │   ├── themed-text.tsx         # Theme-aware typography component
@@ -124,6 +128,7 @@ app/
     │   └── theme.ts                # Design tokens: Colors, Fonts, Spacing, Radius, Shadows
     ├── utils/                      # Pure helpers (no React, no I/O)
     │   ├── agencies.ts             # Country grouping for the agencies directory
+    │   ├── alerts.ts               # Server alerts -> feed rows: target resolution + ordering
     │   ├── countries.ts            # Country/continent grouping helpers
     │   └── freshness.ts            # Freshness tier computation from updatedAt
     ├── hooks/                      # React hooks
@@ -132,6 +137,7 @@ app/
     │   ├── use-theme.ts            # Returns Colors object for current scheme
     │   ├── use-debounce.ts         # Debounced value hook
     │   ├── use-saved-items.tsx     # Favorites + shopping list context
+    │   ├── use-top-inset.tsx       # Where screen content starts (ad banner vs. safe area)
     │   └── use-screen-tracking.ts  # Auto screen_view + flush on background
     ├── i18n/                       # Internationalization
     │   ├── index.ts                # i18next initialization + config
@@ -145,6 +151,7 @@ app/
     │   ├── agencies.ts             # Agency endpoints
     │   ├── certificates.ts         # Certificate endpoints
     │   ├── countries.ts            # Country endpoints
+    │   ├── alerts.ts               # Alerts endpoint (getAlerts, scoped to the followed agencies)
     │   └── telemetry/              # Analytics + error monitoring facade
     │       ├── index.ts            # track / trackScreen / captureError / initTelemetry
     │       ├── events.ts           # Typed event catalog (AnalyticsEvent union)
@@ -388,8 +395,8 @@ All design tokens live here:
 | `Spacing` | Numeric spacing scale (half through ten) |
 | `Radius` | Border radius tokens |
 | `Shadows` | Elevation shadow styles |
-| `BottomTabInset` | Bottom padding screens must reserve (tab bar height + `AdBannerHeight` on native) |
-| `AdBannerHeight` | Height reserved for the anchored AdMob banner (50 native, 0 web) |
+| `Layout.tabBarHeight` | Bottom padding screens must reserve to clear the floating tab bar |
+| `AdBannerHeight` | *Minimum* height reserved for the top AdMob banner (50 native, 0 web); the adaptive banner's real height is measured at runtime |
 | `MaxContentWidth` | Max width for content (800px) |
 
 ### Colors
@@ -664,7 +671,10 @@ const { locale, setLocale } = useLocale();
 
 - Wraps everything in `ThemeProvider` (from `expo-router`, with `DarkTheme`/`DefaultTheme`).
 - Wraps everything in `SavedItemsProvider` for favorites and shopping list state.
-- Renders `AppTabs` (custom tab navigator): Discover (`/`), Products (`/products`), Scan (`/scan`), My List (`/my-list`), Agencies (`/agencies`).
+- Renders `AppTabs` (custom tab navigator): Alerts (`/alerts`), Products (`/products`), Scan (`/scan`), My List (`/my-list`), Agencies (`/agencies`). Discover (`/discover`) is currently hidden - see "Hidden tabs" below.
+- `SafeAreaView` handles the **horizontal edges only**. The top edge belongs to `AppTabs`, which
+  either gives it to the ad banner or hands it to screens through `useTopInset()` - see the ads
+  pattern below. Never add `edges={['top']}` here: it would double-pad every screen.
 
 ### Adding a new screen
 
@@ -706,12 +716,31 @@ useFocusEffect(
 
 The app uses a single custom tab bar (`src/components/app-tabs.tsx`) built with `Tabs`, `TabList`, `TabTrigger`, `TabSlot` from `expo-router/ui`. It renders the same UI across iOS, Android, and Web, including an elevated Scan button in the center.
 
+**Keep the entry count odd.** Every entry is a `flex: 1` slot, so the raised Scan button only reads as centred when the same number of tabs flanks it — today two on each side. Adding or removing a tab without preserving that split visibly pulls the gold button off centre.
+
 Tabs:
-- **Discover** (`/`) — Home feed with alerts, featured products, and categories
+- **Alerts** (`/alerts`) — Landing tab: the notices published by the agencies the user follows. Also carries the `info.circle` entry point to `/alerts/about` in its header
 - **Products** (`/products`) — Browse, search, and filter all products
 - **Scan** (`/scan`) — Barcode scanner (elevated, gold accent)
 - **My List** (`/my-list`) — Shopping list + favorite agencies
 - **Agencies** (`/agencies`) — Certifying agencies directory
+
+#### Hidden tabs
+
+A tab that has to disappear from the bar temporarily is gated by a module-level flag in
+`src/components/app-tabs.tsx` rather than deleted, so bringing it back is a one-line change and the
+screen keeps its git history. **Discover** is currently hidden this way:
+
+- `DISCOVER_ENABLED = false` drops its entry from `tabKeys`.
+- The screen itself lives at `src/app/discover.tsx` (route `/discover`), reachable by URL but not
+  linked from anywhere.
+- `src/app/index.tsx` is a `<Redirect href="/alerts" />`, because `/` is still the entry route and
+  would otherwise render a screen with no tab selected behind it.
+- Discover was the only route linking to `/alerts` and `/about`. Both were re-homed rather than
+  left orphaned: Alerts became the first tab, and About hangs off its header.
+
+To restore it: flip the flag to `true`, delete `src/app/index.tsx`, rename `discover.tsx` back to
+`index.tsx`, and point the tab's `href` back at `/`.
 
 ---
 
@@ -841,6 +870,19 @@ Adding a resource means adding a hook there and a key to `queryKeys` in
 nothing can invalidate.
 
 ### Loading, error, and empty states
+
+**On a screen with pull-to-refresh, the empty and error states go *inside* the list, via
+`ListEmptyComponent` — never as a sibling that replaces it.** Swiping down to retry is wanted most
+exactly when the screen is empty (a failed request, a feed with nothing in it yet), and a plain
+`View` in that slot has nothing to pull. Give the list `contentContainerStyle={[styles.listContent,
+isEmpty && { flexGrow: 1 }]}` so the empty state can take the viewport and centre itself. Only the
+*initial* load replaces the list, with a spinner — there is nothing to refresh yet. See
+`src/app/alerts/index.tsx`.
+
+If a state genuinely has nothing to fetch (the alerts feed with an empty follow list, whose query is
+disabled), guard the refresh handler with an early return rather than firing a request the screen
+does not want — an unscoped one can return far more than the user asked for.
+
 
 Every screen that fetches data **must** handle three states:
 
@@ -986,6 +1028,68 @@ Products expose an `updatedAt` ISO string. The longer a product goes without an 
 
 **When to add a new tier:** Update both `FRESHNESS_THRESHOLDS` and the `tierColor` / `tierIcon` / `tierTranslationKey` maps in the relevant components in lockstep. Then add the matching translation keys to `en` and `es`.
 
+### Pattern: alerts come from the agencies, not from our database
+
+The Alerts tab shows **only what a certifying agency published**, on that agency's own channel.
+There is no client-side derivation any more.
+
+It used to derive the feed: revoked/expired/expiring certificates, outdated products, new products
+— all computed in the app from the catalog it happened to have loaded. That was an inference dressed
+up as an announcement. Nobody had published any of it, so nobody could be held to it, and routine
+catalog bookkeeping (a product whose `updatedAt` had aged past a threshold) fired as loudly as a real
+recall. **Do not reintroduce a client-derived alert.** If a signal is worth alerting on, it belongs
+in a channel an agency controls, or as a hand-written row on the server.
+
+**Where alerts come from:** the worker scrapes each agency's configured alert origin
+(`AlertsScrapingService` + one adapter per agency, mirroring the product-scraping registry) and
+upserts them into the `alerts` table. Operators can also hand-write a row via `server/postman/` for
+an announcement that has no upstream origin.
+
+**Only the agencies the user follows.** `alerts.agencyId` is the *publishing* agency (entirely
+separate from `targetAgencyId`, which is a navigation destination). `AlertsScreen` reads
+`favoriteAgencies` from `useSavedItems()` and passes it to `useAlertsQuery(agencyIds)`, which sends
+one repeated `agencyId` query param per agency. An alert from a supervisor whose hechsher this user
+does not rely on is noise, and burying a real recall under it is the failure mode that matters.
+
+**An empty follow list does not hit the network.** `useAlertsQuery` is `enabled: agencyIds.length > 0`
+because an absent `agencyId` filter means "every agency" to the api — the exact opposite of what a
+user who follows nobody asked for. The screen shows a follow-an-agency prompt instead
+(`alerts.noAgenciesFollowedTitle` / `…Message`), which is a third state distinct from loading and
+from an empty feed.
+
+**Wiring:** `src/services/alerts.ts` (`getAlerts`, `buildAlertsQuery`) fetches, validated by
+`alertSchema` / `AgencyAlert` in `src/services/schemas.ts`. `src/utils/alerts.ts` turns each
+`AgencyAlert` into a `FeedAlert` (`toFeedAlert`) and orders the feed (`sortAlerts`), with
+`buildAlerts(alerts)` doing both. The query key includes the sorted follow list, so following one
+more agency is a different query rather than a stale version of the same one.
+
+**Never run alert copy through `t()`.** Title and description are the publishing agency's own words,
+not this app's translated strings. Translating a kashrut notice would mean rewording a claim we did
+not make — and a string containing `{{`/`}}`-shaped text would break interpolation. Only the empty
+states and the screen title are translated.
+
+**Ordering is severity, then `priority`, then recency**, and `priority` sits *below* severity on
+purpose: it lets an agency rank its own announcements against each other, never push a promotion
+above a recall. The recency key is `publishedAt ?? createdAt` — those differ, because an agency's
+notice only enters our database the first time its origin is scraped, and using row age would dump
+a whole back catalog at the top of the feed as if it had all just happened.
+
+**Target navigation:** `resolveAlertTarget` maps the server's
+`targetType`/`targetProductId`/`targetAgencyId`/`targetUrl` into `{ type: 'product' | 'agency' |
+'url' | 'none' }`, checking a `url` through `isSafeExternalUrl()` and collapsing to `none` when it
+fails — same rule as every other server-supplied URL in this app. `AlertsScreen.handleAlertPress`
+opens a `url` target the way `ExternalLink` does (`openBrowserAsync` on native, a normal navigation
+on web). A row whose target is `none` is not pressable and renders no chevron.
+
+**Rows can legitimately have no description.** Several origins publish a heading and an image and no
+prose at all (Kosher Panama's notices are photographed shelf labels). `AlertRow` falls back to the
+publishing agency's name for the secondary line and hides it entirely when there is nothing to show;
+the image renders in place of the severity icon, already resolved through `resolveMediaUrl()`.
+
+**Not re-filtered client-side:** the server's `AlertsService.findVisible()` already scopes the
+response to `active` rows inside their `startsAt`/`expiresAt` window, so `buildAlerts` does not
+repeat that check — every row it receives is meant to be shown right now.
+
 ### Pattern: agencies directory grouped by country
 
 `src/app/agencies/index.tsx` renders a `SectionList`, one section per country, built by the pure
@@ -1012,26 +1116,46 @@ handing it to `Link`. Call sites need no special handling. A **function** style
 (`({ pressed }) => [...]`) is not an array and passes through untouched — it is evaluated below the
 `Slot`. If another `asChild` wrapper around `Link` is ever added, it must repeat this flattening.
 
-### Pattern: ads (AdMob anchored banner)
+### Pattern: ads (AdMob banner anchored at the top)
 
-The app shows a single AdMob banner anchored directly above the bottom tab bar, visible on every tab **except `/scan`** (the camera UI owns the full screen there).
+The app shows a single AdMob banner **at the very top of the window, above every screen**, visible on every tab **except `/scan`** (the camera UI owns the full screen there).
+
+**It is laid out in flow, not floated.** The banner is a sibling *above* the tab navigator, so the screen below is pushed down by it and no app UI ever sits over it. That is a policy requirement, not a preference: an obscured ad is an AdMob violation. It also means a screen must not pad for the notch when the banner is up - the banner already absorbed the status-bar inset.
 
 **Architecture:**
 
-- `src/components/ad-banner.tsx` — native implementation. Renders a `BannerAd` (`react-native-google-mobile-ads`) at the fixed 320x50 `BannerAdSize.BANNER`, absolutely positioned above the tab bar. On `onAdFailedToLoad` it renders nothing.
-- `src/components/ad-banner.web.tsx` — web stub returning `null`. `react-native-google-mobile-ads` is a native-only module; the platform-extension resolution keeps it out of the web bundle.
-- `src/components/app-tabs.tsx` — hosts the banner: `<AdBanner />` rendered as a sibling of `Tabs`, skipped when `useSegments()[0] === 'scan'`.
-- `Layout.adBannerHeight` (`src/constants/theme.ts`) — 50 on iOS/Android, 0 on web. `Layout.bottomTabInset` already **includes** it, so every screen that pads `Layout.bottomTabInset + Spacing.six` clears the banner automatically.
+- `src/components/ad-banner.tsx` — native implementation. Renders a `BannerAd` (`react-native-google-mobile-ads`) at `BannerAdSize.INLINE_ADAPTIVE_BANNER`, full device width, capped with `maxHeight={MAX_BANNER_HEIGHT}` (60). It absorbs `insets.top` as its own padding, measures its total height with `onLayout`, and reports it upwards.
 
-**Configuration (`app.json`):**
+  **Why this size:** "full width but no taller than N" has exactly one supported expression - inline adaptive plus `maxHeight`. The *anchored* adaptive sizes derive their height from the screen height (~90dp on a tall phone) and ignore `maxHeight`; a hand-written `<width>x50` custom size has far thinner inventory and no-fills. When the auction has nothing that fits the slot it falls back to a 320x50 creative centred in the bar - narrower than asked, never taller.
 
-- Plugin: `["react-native-google-mobile-ads", { "androidAppId": "...", "iosAppId": "..." }]`. **The plugin props are camelCase** (`androidAppId` / `iosAppId`) — the snake_case keys from older docs are silently ignored and the build warns "No 'androidAppId' was provided". Google sample app ids are committed as placeholders; replace them with the real AdMob app ids before release.
-- `expo.extra.admobBannerUnitIdIos` / `expo.extra.admobBannerUnitIdAndroid` — release banner unit ids, read via `Constants.expoConfig.extra`. Empty string → banner hidden in release builds. **`__DEV__` always uses `TestIds.BANNER`** regardless of config.
-- `expo-tracking-transparency` plugin sets `NSUserTrackingUsageDescription`; the banner requests ATT on mount and passes `requestNonPersonalizedAdsOnly` when consent is denied.
+  **Dev builds use `TestIds.ADAPTIVE_BANNER`, not `TestIds.BANNER`.** The latter always serves a 320x50 test creative whatever size was requested, which makes a full-width slot look broken in development and sends you chasing a layout bug that does not exist.
+- `src/components/ad-banner.web.tsx` — web stub exporting a `null` component and `isAdBannerAvailable = false`. `react-native-google-mobile-ads` is native-only; the platform extension keeps it out of the web bundle.
+- `src/components/app-tabs.tsx` — hosts the banner as the first child of its root view, skipped when `useSegments()[0] === 'scan'` or when `isAdBannerAvailable` is false. It publishes the resolved top geometry through `TopInsetProvider`, and also hosts `OfflineBanner` so that overlay floats *below* the ad rather than over it.
+- `src/hooks/use-top-inset.tsx` — `useTopInset()` returns `{ contentTopInset, contentTop }`.
+  **Every screen pads its container with `contentTopInset`, never with `insets.top`.** It is `0`
+  while the banner is up and `insets.top` when it is not, so a screen works identically with ads on,
+  off, or hidden. `contentTop` is the absolute y where content begins, for chrome that floats over a
+  screen. Outside the tab shell (tests) the hook falls back to the plain safe-area inset.
+- `Layout.adBannerHeight` (`src/constants/theme.ts`) — 50 on iOS/Android, 0 on web: the slot's
+  *minimum*, and what is reserved until the bar's first `onLayout`. `Layout.tabBarHeight` is what
+  screens reserve at the bottom - it no longer includes any ad height.
+
+**Refresh cadence.** Impressions are the revenue, but over-refreshing is what gets an account suspended, so the cadence has exactly one owner at a time:
+
+- `ADMOB_BANNER_REFRESH_SECONDS=0` (default) — AdMob's own per-ad-unit auto-refresh owns it. Nothing in the app requests a second ad.
+- Any other value — in-app refresh: the banner remounts (a new `key`, the only reload path that works across SDK versions) **on a route change**, never more often than the configured interval, never while `AppState` is not `active`. Values below 30s are clamped up to AdMob's 30s floor.
+
+Enabling both stacks them and roughly doubles the effective rate — turn the ad unit's automatic refresh off in the console before setting a non-zero value here. A *failed* load produces no impression, so it is retried after 30s regardless of the setting, while the slot keeps its reserved height (a failed fill must not shift the whole app).
+
+**Configuration (`.env` → `app.config.ts` → `Config`):**
+
+- Plugin: `["react-native-google-mobile-ads", { "androidAppId": "...", "iosAppId": "..." }]`, added only when `ADS_ENABLED=true` **and** both app ids are set. **The plugin props are camelCase** — the snake_case keys from older docs are silently ignored and the build warns "No 'androidAppId' was provided".
+- `ADMOB_BANNER_UNIT_ID_IOS` / `ADMOB_BANNER_UNIT_ID_ANDROID` — release banner unit ids. Empty → no banner and no reserved slot in release builds. **`__DEV__` always uses `TestIds.BANNER`** regardless of config.
+- `expo-tracking-transparency` sets `NSUserTrackingUsageDescription`; the banner requests ATT on mount and passes `requestNonPersonalizedAdsOnly` when consent is denied.
 
 **Hard requirement — dev builds only:** AdMob is native code. After `expo prebuild` the app no longer runs in **Expo Go**. Use `pnpm ios` / `pnpm android` (`expo run:*`) or an EAS development build. The web target is unaffected (stub).
 
-**Why fixed 320x50 instead of `ANCHORED_ADAPTIVE_BANNER`:** adaptive banners have a device-dependent height, which would force every screen's static `StyleSheet` bottom padding through a runtime context. The fixed size keeps the layout deterministic — one constant in `theme.ts`, zero per-screen plumbing. To upgrade later: measure the rendered height via `onLayout`, expose it through a provider, and replace the constant.
+**Changing the banner size** is a one-line change in `ad-banner.tsx`: the height is measured, never assumed, so nothing else in the layout has to follow (keep `Layout.adBannerHeight` roughly in step to avoid a first-frame jump).
 
 ---
 
@@ -1321,7 +1445,7 @@ before any change is considered done.
 |---|---|
 | Agencies directory grouping/ordering | `src/utils/agencies.test.ts` |
 | Freshness tiers, clock skew, corrupt dates | `src/utils/freshness.test.ts` |
-| Alert derivation, severity, ordering | `src/utils/alerts.test.ts` |
+| Alert feed mapping, target safety, severity/priority/recency ordering | `src/utils/alerts.test.ts` |
 | Query-string contract with the API DTOs | `src/services/products.test.ts` |
 | Response validation + anti-corruption renaming | `src/services/schemas.test.ts` |
 | URL scheme guards | `src/services/api.test.ts` |
@@ -1346,7 +1470,11 @@ The server side has its own suite: `pnpm test` from `server/`.
 
 ---
 
-### 7. Cross-boundary API changes
+### 7. Endpoints belong in the Postman collection
+
+If a change adds, removes, or reshapes an HTTP endpoint on the backend, `server/postman/kosher-pass.postman_collection.json` must be updated in the same turn — new route, removed route, new or renamed query param, changed body, different status code. That collection is the only client for the api's unauthenticated write endpoints (there is no admin UI), so a route missing from it is a route nobody can reach. The full rule lives in `server/AGENTS.md` → "AI maintenance rules".
+
+### 8. Cross-boundary API changes
 
 When a task modifies anything that affects the contract between the app (mobile client) and the server (api/worker) — such as request parameters, response shapes, new or removed endpoints, DTO changes, query params, error codes, or shared type definitions — the AI **must**, after completing the task, produce a **ready-to-paste prompt** that the user can pass to a separate session working on the other side. The prompt must:
 - Clearly state which side was changed (server or app).
@@ -1401,6 +1529,7 @@ The AI must fetch the versioned docs, not guess:
 - Server state goes through the hooks in `@/hooks/use-queries` — never hand-roll fetch state in a screen.
 - Every API response is validated by a zod schema; types are inferred from the schemas, never hand-written.
 - Screens read `product.agency` / `.certificate` / `.country`, never the wire names `agencyId` / `certificateId` / `countryId`.
+- Screens pad their top with `useTopInset().contentTopInset`, never with `insets.top` directly.
 - Every interactive element carries `accessibilityRole` and a label; toggles also carry `accessibilityState`.
 - Every service function accepts an optional `ApiRequestOptions`; fetching screens abort on unmount.
 - Server-supplied URLs pass through `resolveMediaUrl` / `isSafeExternalUrl` before use.

@@ -26,6 +26,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import {
   flattenProductPages,
   useCountriesQuery,
@@ -63,6 +64,7 @@ export default function ProductsScreen() {
   const params = useLocalSearchParams<{ name?: string }>();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { contentTopInset } = useTopInset();
   const { t } = useTranslation();
 
   const [searchQuery, setSearchQuery] = useState(params.name ?? '');
@@ -235,7 +237,7 @@ export default function ProductsScreen() {
   })();
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
       <View style={styles.header}>
         <ThemedText type="hero">{t('products.heroTitle')}</ThemedText>
       </View>
@@ -705,7 +707,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: Spacing.four,
-    paddingBottom: Layout.bottomTabInset + Spacing.six,
+    paddingBottom: Layout.tabBarHeight + Spacing.six,
     paddingTop: Spacing.four,
   },
   row: {

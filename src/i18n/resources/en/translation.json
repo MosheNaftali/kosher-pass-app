@@ -194,10 +194,12 @@
       "expandSection": "Expand {{name}}",
       "collapseSection": "Collapse {{name}}",
       "viewProduct": "View {{name}}",
+      "viewProductWithNote": "View {{name}}. It has an important note about its kashrut",
       "viewAgency": "View {{name}}"
     }
   },
   "tabs": {
+    "alerts": "Alerts",
     "discover": "Discover",
     "products": "Products",
     "scan": "Scan",
@@ -216,15 +218,24 @@
   },
   "alerts": {
     "heroTitle": "Alerts",
-    "newProduct": "New product added",
-    "agencyJoined": "Agency joined Kosher Pass",
     "noAlertsTitle": "Nothing to report",
-    "noAlertsMessage": "No revoked or expiring certificates, and nothing out of date.",
-    "certificateRevoked": "Certificate revoked",
-    "certificateExpired": "Certificate expired",
-    "certificateExpiring": "Certificate expires in {{days}} days",
-    "productOutdated": "Not verified recently",
-    "productNew": "New product added"
+    "noAlertsMessage": "None of the agencies you follow have published an alert.",
+    "noAgenciesFollowedTitle": "Follow an agency",
+    "noAgenciesFollowedMessage": "Alerts come from the certifying agencies you follow. Add one from the Agencies tab to start seeing their notices.",
+    "close": "Close",
+    "viewSource": "View source",
+    "viewProduct": "View product",
+    "viewAgency": "View agency",
+    "publishedOn": "Published {{date}}",
+    "noDetail": "The agency published no further detail with this notice.",
+    "severity": {
+      "critical": "Critical alert",
+      "warning": "Warning",
+      "info": "Announcement"
+    },
+    "a11y": {
+      "openDetail": "Opens the full notice"
+    }
   },
   "scan": {
     "cameraPermissionTitle": "Camera permission required",

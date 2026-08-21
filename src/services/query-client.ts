@@ -94,4 +94,9 @@ export const queryKeys = {
   certificates: (agencyId: string) => ['certificates', agencyId] as const,
   certificatesByFilters: (filters: Record<string, unknown>) =>
     ['certificates-filtered', filters] as const,
+  // Keyed by the follow list: the feed is scoped to the agencies the user
+  // follows, so following one more agency is a different query, not a stale
+  // version of the same one.
+  alerts: (agencyIds: string[]) =>
+    ['alerts', [...agencyIds].sort()] as const,
 } as const;

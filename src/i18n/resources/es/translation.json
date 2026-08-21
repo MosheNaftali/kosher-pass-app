@@ -194,10 +194,12 @@
       "expandSection": "Desplegar {{name}}",
       "collapseSection": "Plegar {{name}}",
       "viewProduct": "Ver {{name}}",
+      "viewProductWithNote": "Ver {{name}}. Tiene una nota importante sobre su kashrut",
       "viewAgency": "Ver {{name}}"
     }
   },
   "tabs": {
+    "alerts": "Alertas",
     "discover": "Descubrir",
     "products": "Productos",
     "scan": "Escanear",
@@ -216,15 +218,24 @@
   },
   "alerts": {
     "heroTitle": "Alertas",
-    "newProduct": "Nuevo producto agregado",
-    "agencyJoined": "Agencia se unió a Kosher Pass",
     "noAlertsTitle": "Nada que reportar",
-    "noAlertsMessage": "No hay certificados revocados ni por vencer, y nada desactualizado.",
-    "certificateRevoked": "Certificado revocado",
-    "certificateExpired": "Certificado vencido",
-    "certificateExpiring": "El certificado vence en {{days}} días",
-    "productOutdated": "Sin verificar recientemente",
-    "productNew": "Nuevo producto añadido"
+    "noAlertsMessage": "Ninguna de las agencias que sigues ha publicado una alerta.",
+    "noAgenciesFollowedTitle": "Sigue una agencia",
+    "noAgenciesFollowedMessage": "Las alertas vienen de las agencias certificadoras que sigues. Agrega una desde la pestaña Agencias para ver sus avisos.",
+    "close": "Cerrar",
+    "viewSource": "Ver origen",
+    "viewProduct": "Ver producto",
+    "viewAgency": "Ver agencia",
+    "publishedOn": "Publicado el {{date}}",
+    "noDetail": "La agencia no publicó más detalles con este aviso.",
+    "severity": {
+      "critical": "Alerta crítica",
+      "warning": "Advertencia",
+      "info": "Anuncio"
+    },
+    "a11y": {
+      "openDetail": "Abre el aviso completo"
+    }
   },
   "scan": {
     "cameraPermissionTitle": "Permiso de cámara requerido",

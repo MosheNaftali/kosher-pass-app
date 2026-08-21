@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -22,11 +23,17 @@ interface ProductCardProps {
   onPress: (product: Product) => void;
 }
 
+const noteIcon = { ios: 'exclamationmark.circle.fill', web: 'error' } as const;
+
 export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
   const theme = useTheme();
   const { t } = useTranslation();
   const scale = useSharedValue(1);
   const tier = getFreshnessTier(product.updatedAt);
+  // Notes usually spell out which variant of the product is actually kosher.
+  // Showing the first line cut off is what nudges the user into opening the
+  // detail screen to read the rest.
+  const note = product.notes?.trim() || null;
 
   const imageSource = resolveMediaUrl(product.imgUrl);
   const agencyLogoSource = resolveMediaUrl(product.agency?.logoUrl);
@@ -46,7 +53,9 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         accessibilityRole="button"
-        accessibilityLabel={t('common.a11y.viewProduct', { name: product.name })}>
+        accessibilityLabel={t(note ? 'common.a11y.viewProductWithNote' : 'common.a11y.viewProduct', {
+          name: product.name,
+        })}>
         <Animated.View
           style={[
             styles.card,
@@ -62,7 +71,7 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
               <Image
                 source={{ uri: imageSource }}
                 style={styles.image}
-                contentFit="cover"
+                contentFit="contain"
                 recyclingKey={String(product.id)}
                 transition={150}
               />
@@ -99,6 +108,17 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
               </ThemedText>
             )}
             <KashrutBadge level={product.kashrutLevel} size="sm" showMehadrin={product.isMehadrin} />
+            {note && (
+              <View style={styles.noteHint}>
+                <SymbolView name={noteIcon} size={12} weight="semibold" tintColor={theme.warning} />
+                <ThemedText
+                  type="caption"
+                  style={[styles.noteHintText, { color: theme.warning }]}
+                  numberOfLines={1}>
+                  {note}
+                </ThemedText>
+              </View>
+            )}
           </ThemedView>
         </Animated.View>
       </Pressable>
@@ -140,6 +160,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Spacing.two,
     right: Spacing.two,
+  },
+  noteHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    marginTop: -Spacing.one,
+  },
+  noteHintText: {
+    flex: 1,
   },
   content: {
     padding: Spacing.three,

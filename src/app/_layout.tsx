@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import AppTabs from '@/components/app-tabs';
-import { OfflineBanner } from '@/components/offline-banner';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SavedItemsProvider } from '@/hooks/use-saved-items';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
@@ -52,14 +51,14 @@ export default function TabLayout() {
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <SavedItemsProvider>
               {/*
-                Only the horizontal edges are handled here. Every screen already
-                applies `insets.top` to its own header (and the product detail
-                footer applies `insets.bottom`), so letting SafeAreaView inset
-                those too double-padded every screen.
+                Only the horizontal edges are handled here. The top edge is
+                owned by the ad banner / `useTopInset` (see
+                `@/hooks/use-top-inset`) and the bottom by each screen's own
+                anchored chrome, so letting SafeAreaView inset those too
+                double-padded every screen.
               */}
               <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
                 <ScreenTracker />
-                <OfflineBanner />
                 <AppTabs />
               </SafeAreaView>
             </SavedItemsProvider>

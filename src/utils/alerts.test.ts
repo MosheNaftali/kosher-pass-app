@@ -1,13 +1,12 @@
-import type { Certificate } from '@/services/certificates';
-import type { Product } from '@/services/products';
+import type { AgencyAlert } from '@/services/schemas';
 
 import {
+  alertSourceLink,
   buildAlerts,
-  deriveCertificateAlerts,
-  deriveProductAlerts,
-  EXPIRING_SOON_DAYS,
-  NEW_PRODUCT_DAYS,
+  resolveAlertTarget,
   sortAlerts,
+  toFeedAlert,
+  type FeedAlert,
 } from './alerts';
 
 const NOW = new Date('2026-08-17T12:00:00.000Z');
@@ -16,196 +15,220 @@ function daysFromNow(days: number): string {
   return new Date(NOW.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
-function certificate(overrides: Partial<Certificate> = {}): Certificate {
+function agencyAlert(overrides: Partial<AgencyAlert> = {}): AgencyAlert {
   return {
     id: 1,
-    agencyId: 'KMD',
-    agency: null,
-    certificateCode: null,
-    status: 'valid',
-    validFrom: null,
-    validUntil: null,
-    scanUrl: null,
-    metadata: null,
-    createdAt: daysFromNow(-100),
-    updatedAt: daysFromNow(-1),
-    ...overrides,
-  } as Certificate;
-}
-
-function product(overrides: Partial<Product> = {}): Product {
-  return {
-    id: 1,
-    name: 'Test product',
-    nameSearch: null,
-    brand: null,
-    category: null,
-    subCategory: null,
-    barcode: null,
-    externalId: null,
-    kashrutLevel: 'pareve',
-    isMehadrin: false,
-    country: null,
-    agency: null,
-    certificate: null,
+    agencyId: 'KPANAMA',
+    source: 'scraper',
+    sourceUrl: 'https://kosher.com.pa/noticias-kosher-panama/alerta/',
+    publishedAt: null,
+    title: 'Alerta',
+    description: 'A batch of products is being recalled.',
+    imageUrl: null,
+    severity: 'info',
+    targetType: 'none',
+    targetProductId: null,
+    targetAgencyId: null,
+    targetUrl: null,
+    startsAt: null,
+    expiresAt: null,
+    priority: 0,
     active: true,
-    notes: null,
-    imgUrl: null,
     createdAt: daysFromNow(-1),
     updatedAt: daysFromNow(-1),
     ...overrides,
-  } as Product;
+  } as AgencyAlert;
 }
 
-describe('deriveCertificateAlerts', () => {
-  it('flags a revoked certificate as critical', () => {
-    const [alert] = deriveCertificateAlerts([certificate({ status: 'revoked' })], NOW);
+function feedAlert(overrides: Partial<FeedAlert> = {}): FeedAlert {
+  return {
+    id: 'alert-1',
+    severity: 'info',
+    target: { type: 'none' },
+    title: 'Alerta',
+    description: '',
+    agencyId: 'KPANAMA',
+    timestamp: daysFromNow(-1),
+    priority: 0,
+    imageUrl: null,
+    sourceUrl: 'https://kosher.com.pa/noticias-kosher-panama/alerta/',
+    publishedAt: null,
+    ...overrides,
+  };
+}
 
-    expect(alert.kind).toBe('certificate_revoked');
+describe('toFeedAlert', () => {
+  it('carries the agency copy through untouched', () => {
+    const alert = toFeedAlert(
+      agencyAlert({ title: 'Producto retirado', description: 'Lote 402', severity: 'critical' })
+    );
+
+    expect(alert.title).toBe('Producto retirado');
+    expect(alert.description).toBe('Lote 402');
     expect(alert.severity).toBe('critical');
-    expect(alert.target).toEqual({ type: 'agency', id: 'KMD' });
   });
 
-  it('flags an expired certificate as a warning', () => {
-    const [alert] = deriveCertificateAlerts([certificate({ status: 'expired' })], NOW);
-
-    expect(alert.kind).toBe('certificate_expired');
-    expect(alert.severity).toBe('warning');
+  it('attributes the alert to its publishing agency', () => {
+    expect(toFeedAlert(agencyAlert({ agencyId: 'KMD' })).agencyId).toBe('KMD');
   });
 
-  it('flags a valid certificate expiring inside the window, with the day count', () => {
-    const [alert] = deriveCertificateAlerts(
-      [certificate({ status: 'valid', validUntil: daysFromNow(10) })],
-      NOW
+  it('orders by publishedAt when the origin dated the notice', () => {
+    // The row is a day old here but the notice is a year old: the agency put it
+    // up long before the first scrape reached that origin.
+    const alert = toFeedAlert(
+      agencyAlert({ publishedAt: daysFromNow(-365), createdAt: daysFromNow(-1) })
     );
 
-    expect(alert.kind).toBe('certificate_expiring');
-    expect(alert.days).toBe(10);
+    expect(alert.timestamp).toBe(daysFromNow(-365));
   });
 
-  it('ignores a valid certificate expiring beyond the window', () => {
-    const alerts = deriveCertificateAlerts(
-      [certificate({ status: 'valid', validUntil: daysFromNow(EXPIRING_SOON_DAYS + 1) })],
-      NOW
-    );
+  it('falls back to createdAt when the origin published no date', () => {
+    const alert = toFeedAlert(agencyAlert({ publishedAt: null, createdAt: daysFromNow(-3) }));
 
-    expect(alerts).toHaveLength(0);
+    expect(alert.timestamp).toBe(daysFromNow(-3));
   });
 
-  it('does not emit an expiry alert for a certificate that already lapsed by date', () => {
-    // A past `validUntil` on a still-"valid" row is a data lag, not an upcoming
-    // expiry - surfacing it as "expires in -5 days" would be nonsense copy.
-    const alerts = deriveCertificateAlerts(
-      [certificate({ status: 'valid', validUntil: daysFromNow(-5) })],
-      NOW
-    );
+  it('resolves the image through resolveMediaUrl', () => {
+    const alert = toFeedAlert(agencyAlert({ imageUrl: 'https://example.com/notice.png' }));
 
-    expect(alerts).toHaveLength(0);
+    expect(alert.imageUrl).toBe('https://example.com/notice.png');
   });
 
-  it('ignores an unparseable validUntil instead of throwing', () => {
-    const alerts = deriveCertificateAlerts(
-      [certificate({ status: 'valid', validUntil: 'garbage' })],
-      NOW
-    );
-
-    expect(alerts).toHaveLength(0);
+  it('drops an unsafe source url', () => {
+    // The detail sheet hands this straight to the in-app browser.
+    expect(toFeedAlert(agencyAlert({ sourceUrl: 'javascript:alert(1)' })).sourceUrl).toBeNull();
   });
 
-  it('prefers the agency name over the raw id when it is available', () => {
-    const [alert] = deriveCertificateAlerts(
-      [
-        certificate({
-          status: 'revoked',
-          agency: { id: 'KMD', name: 'Kosher Mexico' } as Certificate['agency'],
-        }),
-      ],
-      NOW
-    );
+  it('leaves publishedAt null rather than backfilling it with our row age', () => {
+    // timestamp falls back to createdAt for ordering; the date shown to the
+    // reader must not, because a scrape date is not a publication date.
+    const alert = toFeedAlert(agencyAlert({ publishedAt: null, createdAt: daysFromNow(-3) }));
 
-    expect(alert.subject).toBe('Kosher Mexico');
+    expect(alert.publishedAt).toBeNull();
+    expect(alert.timestamp).toBe(daysFromNow(-3));
   });
 });
 
-describe('deriveProductAlerts', () => {
-  it('flags an outdated product', () => {
-    const [alert] = deriveProductAlerts([product({ updatedAt: daysFromNow(-400) })], NOW);
+describe('alertSourceLink', () => {
+  it('prefers the url target over the scraped origin', () => {
+    const alert = feedAlert({
+      target: { type: 'url', url: 'https://example.com/notice' },
+      sourceUrl: 'https://example.com/feed',
+    });
 
-    expect(alert.kind).toBe('product_outdated');
-    expect(alert.severity).toBe('warning');
+    expect(alertSourceLink(alert)).toBe('https://example.com/notice');
   });
 
-  it('flags a genuinely recent product as new', () => {
-    const [alert] = deriveProductAlerts([product({ createdAt: daysFromNow(-2) })], NOW);
+  it('falls back to the origin the notice was scraped from', () => {
+    const alert = feedAlert({ target: { type: 'product', id: 42 } });
 
-    expect(alert.kind).toBe('product_new');
-    expect(alert.severity).toBe('info');
+    expect(alertSourceLink(alert)).toBe('https://kosher.com.pa/noticias-kosher-panama/alerta/');
   });
 
-  it('does not treat an old product as new - the previous screen showed the first six rows regardless of age', () => {
-    const alerts = deriveProductAlerts(
-      [product({ createdAt: daysFromNow(-(NEW_PRODUCT_DAYS + 1)) })],
-      NOW
+  it('returns null when the alert has no external origin at all', () => {
+    expect(alertSourceLink(feedAlert({ sourceUrl: null }))).toBeNull();
+  });
+});
+
+describe('resolveAlertTarget', () => {
+  it('maps a product target', () => {
+    expect(resolveAlertTarget(agencyAlert({ targetType: 'product', targetProductId: 42 }))).toEqual(
+      { type: 'product', id: 42 }
     );
-
-    expect(alerts).toHaveLength(0);
   });
 
-  it('reports an outdated product once, not also as new', () => {
-    const alerts = deriveProductAlerts(
-      [product({ createdAt: daysFromNow(-1), updatedAt: daysFromNow(-400) })],
-      NOW
+  it('maps an agency target', () => {
+    expect(resolveAlertTarget(agencyAlert({ targetType: 'agency', targetAgencyId: 'KMD' }))).toEqual(
+      { type: 'agency', id: 'KMD' }
     );
+  });
 
-    expect(alerts).toHaveLength(1);
-    expect(alerts[0].kind).toBe('product_outdated');
+  it('maps a url target', () => {
+    expect(
+      resolveAlertTarget(agencyAlert({ targetType: 'url', targetUrl: 'https://example.com/promo' }))
+    ).toEqual({ type: 'url', url: 'https://example.com/promo' });
+  });
+
+  it('collapses an unsafe url target to none', () => {
+    // A javascript: value stored upstream must never reach the in-app browser.
+    expect(
+      resolveAlertTarget(agencyAlert({ targetType: 'url', targetUrl: 'javascript:alert(1)' }))
+    ).toEqual({ type: 'none' });
+  });
+
+  it('collapses a target whose id is missing', () => {
+    expect(
+      resolveAlertTarget(agencyAlert({ targetType: 'product', targetProductId: null }))
+    ).toEqual({ type: 'none' });
+  });
+
+  it('maps an explicit none target', () => {
+    expect(resolveAlertTarget(agencyAlert({ targetType: 'none' }))).toEqual({ type: 'none' });
   });
 });
 
 describe('sortAlerts', () => {
-  it('keeps critical alerts above newer low-severity ones', () => {
-    // The ordering guarantee that matters: a burst of new products must never
-    // push a revoked certificate off the top of the feed.
-    const alerts = buildAlerts(
-      [product({ id: 7, createdAt: daysFromNow(0) })],
-      [certificate({ status: 'revoked', updatedAt: daysFromNow(-30) })],
-      NOW
-    );
-
-    expect(alerts[0].severity).toBe('critical');
-    expect(alerts[1].kind).toBe('product_new');
-  });
-
-  it('orders equal severities most recent first', () => {
+  it('puts critical above warning above info', () => {
     const sorted = sortAlerts([
-      {
-        id: 'a',
-        kind: 'product_new',
-        severity: 'info',
-        target: { type: 'product', id: 1 },
-        titleKey: 'x',
-        subject: 'older',
-        timestamp: daysFromNow(-5),
-      },
-      {
-        id: 'b',
-        kind: 'product_new',
-        severity: 'info',
-        target: { type: 'product', id: 2 },
-        titleKey: 'x',
-        subject: 'newer',
-        timestamp: daysFromNow(-1),
-      },
+      feedAlert({ id: 'info', severity: 'info' }),
+      feedAlert({ id: 'critical', severity: 'critical' }),
+      feedAlert({ id: 'warning', severity: 'warning' }),
     ]);
 
-    expect(sorted.map(a => a.subject)).toEqual(['newer', 'older']);
+    expect(sorted.map(a => a.id)).toEqual(['critical', 'warning', 'info']);
   });
 
-  it('does not mutate its input', () => {
-    const input = buildAlerts([], [certificate({ status: 'revoked' })], NOW);
-    const copy = [...input];
-    sortAlerts(input);
+  it('ranks by priority within a severity band', () => {
+    const sorted = sortAlerts([
+      feedAlert({ id: 'low', severity: 'info', priority: 0 }),
+      feedAlert({ id: 'high', severity: 'info', priority: 10 }),
+    ]);
 
-    expect(input).toEqual(copy);
+    expect(sorted.map(a => a.id)).toEqual(['high', 'low']);
+  });
+
+  it('never lets priority outrank severity', () => {
+    // An agency can rank its own announcements against each other; it cannot
+    // push a promotion above a recall.
+    const sorted = sortAlerts([
+      feedAlert({ id: 'promo', severity: 'info', priority: 100 }),
+      feedAlert({ id: 'recall', severity: 'critical', priority: 0 }),
+    ]);
+
+    expect(sorted[0].id).toBe('recall');
+  });
+
+  it('falls back to most recent within equal severity and priority', () => {
+    const sorted = sortAlerts([
+      feedAlert({ id: 'old', timestamp: daysFromNow(-10) }),
+      feedAlert({ id: 'new', timestamp: daysFromNow(-1) }),
+    ]);
+
+    expect(sorted.map(a => a.id)).toEqual(['new', 'old']);
+  });
+});
+
+describe('buildAlerts', () => {
+  it('maps and orders the server feed in one pass', () => {
+    const alerts = buildAlerts([
+      agencyAlert({ id: 1, severity: 'info' }),
+      agencyAlert({ id: 2, severity: 'critical' }),
+    ]);
+
+    expect(alerts.map(a => a.id)).toEqual(['alert-2', 'alert-1']);
+  });
+
+  it('returns an empty feed for an empty response', () => {
+    expect(buildAlerts([])).toEqual([]);
+  });
+
+  it('does not re-filter the visibility window the api already applied', () => {
+    // findVisible() ships only active rows inside their startsAt/expiresAt
+    // window, so anything reaching here is meant to be on screen right now.
+    const alerts = buildAlerts([
+      agencyAlert({ id: 1, startsAt: daysFromNow(10), expiresAt: daysFromNow(-10) }),
+    ]);
+
+    expect(alerts).toHaveLength(1);
   });
 });

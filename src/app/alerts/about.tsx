@@ -8,7 +8,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ExternalLink } from '@/components/external-link';
@@ -17,6 +16,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Config } from '@/constants/config';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import { isSafeExternalUrl } from '@/services/api';
 
 // Contact details come from the environment (see .env.example). When a value is
@@ -30,7 +30,7 @@ const DEVELOPER_WEBSITE = isSafeExternalUrl(Config.developerWebsite)
 export default function AboutScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  const { contentTopInset } = useTopInset();
   const { t } = useTranslation();
 
   const appVersion =
@@ -46,7 +46,7 @@ export default function AboutScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
-    paddingBottom: Layout.bottomTabInset + Spacing.six,
+    paddingBottom: Layout.tabBarHeight + Spacing.six,
     gap: Spacing.four,
   },
   appCard: {

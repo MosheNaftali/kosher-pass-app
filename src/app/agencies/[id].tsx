@@ -10,7 +10,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { CertificateBadge } from '@/components/certificate-badge';
@@ -25,6 +24,7 @@ import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import {
   flattenProductPages,
   useAgencyQuery,
@@ -39,7 +39,7 @@ export default function AgencyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  const { contentTopInset } = useTopInset();
   const { t } = useTranslation();
   const { toggleFavoriteAgency, isFavoriteAgency } = useSavedItems();
 
@@ -87,7 +87,7 @@ export default function AgencyDetailScreen() {
 
   if (metaLoading) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
         <ActivityIndicator style={styles.loader} color={theme.accent} size="large" />
       </ThemedView>
     );
@@ -95,7 +95,7 @@ export default function AgencyDetailScreen() {
 
   if (metaError || !agency) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
         <EmptyState icon="exclamationmark.triangle" title={t('common.oops')} message={metaError ?? t('agencies.agencyNotFound')} />
       </ThemedView>
     );
@@ -201,7 +201,7 @@ export default function AgencyDetailScreen() {
   );
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
       <Pressable
         onPress={() => router.back()}
         accessibilityRole="button"
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: Spacing.four,
-    paddingBottom: Layout.bottomTabInset + Spacing.six,
+    paddingBottom: Layout.tabBarHeight + Spacing.six,
   },
   loader: {
     flex: 1,

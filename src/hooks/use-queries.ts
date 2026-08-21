@@ -8,6 +8,7 @@ import {
   type AgencyFilters,
   type PaginatedAgencies,
 } from '@/services/agencies';
+import { getAlerts, type AgencyAlert } from '@/services/alerts';
 import {
   getCertificates,
   type Certificate,
@@ -133,6 +134,23 @@ export function useAgencyCertificatesQuery(agencyId: string) {
   });
 }
 
+/**
+ * The Alerts tab's feed: the alerts published by the agencies the user
+ * follows, scraped by the backend from each agency's own notices channel.
+ *
+ * Disabled for an empty follow list rather than fetched: an absent
+ * `agencyId` filter means "every agency" to the api, which is the opposite of
+ * what a user who follows nobody asked for. The screen shows them a prompt to
+ * follow an agency instead.
+ */
+export function useAlertsQuery(agencyIds: string[]) {
+  return useQuery({
+    queryKey: queryKeys.alerts(agencyIds),
+    queryFn: ({ signal }) => getAlerts(agencyIds, { signal }),
+    enabled: agencyIds.length > 0,
+  });
+}
+
 export function useCountriesQuery() {
   return useQuery({
     queryKey: queryKeys.countries(),
@@ -142,4 +160,4 @@ export function useCountriesQuery() {
   });
 }
 
-export type { Agency, Certificate, CountryWithAgencies, Product };
+export type { Agency, AgencyAlert, Certificate, CountryWithAgencies, Product };

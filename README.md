@@ -101,11 +101,13 @@ Two optional services, both inert until you configure them — the app runs fine
 
 ## Ads (AdMob)
 
-An anchored banner shows above the tab bar on all tabs except Scan. **Off by default.**
+A full-width banner (adaptive, capped at 60dp tall) is anchored at the **top** of the app, above
+every screen, on all tabs except Scan. It is laid out in flow, so screens are pushed down by it and
+nothing ever overlaps it. **Off by default.**
 
 - Set `ADS_ENABLED=true` in `.env` to turn it on. While it is `false`, the AdMob native plugin is
   left out of the build entirely.
-- Dev builds always serve Google's test banner (`TestIds.BANNER`).
+- Dev builds always serve Google's adaptive test banner (`TestIds.ADAPTIVE_BANNER`).
 - Before release, fill in your AdMob values in `.env`:
   - `ADMOB_ANDROID_APP_ID` / `ADMOB_IOS_APP_ID` — app ids (`ca-app-pub-…~…`). **Both are
     required**; without them the plugin is skipped, because AdMob's native init fails at startup
@@ -114,6 +116,21 @@ An anchored banner shows above the tab bar on all tabs except Scan. **Off by def
     (`ca-app-pub-…/…`). Empty = banner hidden in release builds.
 - iOS shows the App Tracking Transparency prompt on first launch; denying it falls back to
   non-personalized ads.
+
+### Refresh cadence
+
+A banner earns per impression, so it has to refresh — but refreshing too often is what gets an
+AdMob account suspended. There are two mutually exclusive ways to do it:
+
+1. **AdMob auto-refresh (default, recommended).** Leave `ADMOB_BANNER_REFRESH_SECONDS=0` and set
+   the refresh rate on the ad unit in the AdMob console (30–120s; 60s is Google's recommendation).
+   Google owns the cadence, so it cannot drift out of policy.
+2. **In-app refresh.** Set `ADMOB_BANNER_REFRESH_SECONDS` to the interval you want. The banner then
+   reloads **on a screen change**, never more often than that interval and never while the app is
+   backgrounded. Values under 30 are clamped up to 30 (AdMob's floor).
+
+**Do not enable both** — the two stack, and the real refresh rate ends up roughly double what
+either intends. Turn the ad unit's automatic refresh off in the console before using option 2.
 
 
 ## Scripts
@@ -134,8 +151,9 @@ An anchored banner shows above the tab bar on all tabs except Scan. **Off by def
 ```
 src/
 ├── app/                  # File-based routes (Expo Router)
-│   ├── index.tsx         # Discover / Home
-│   ├── alerts.tsx        # Alerts list
+│   ├── index.tsx         # Entry route (/) — redirects to /alerts
+│   ├── discover.tsx      # Discover / Home (tab currently hidden)
+│   ├── alerts/           # Alerts (landing tab) + About entry point
 │   ├── scan.tsx          # Barcode scanner
 │   ├── my-list.tsx       # Shopping list + favorite agencies
 │   ├── products/         # Products stack

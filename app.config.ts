@@ -76,7 +76,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
 
   ios: {
-    icon: './assets/images/icon.png',
+    icon: './assets/icons/apple.icon',
     bundleIdentifier: 'com.kosherpass.app',
   },
 
@@ -100,7 +100,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-splash-screen',
       {
         backgroundColor: '#1E2D3D',
-        image: './assets/images/icon.png',
+        image: './assets/images/logo.png',
         imageWidth: 76,
       },
     ],
@@ -123,7 +123,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-status-bar",
     "expo-web-browser",
     // ...sentryPlugin,
-    // ...adsPlugin,
+    ...adsPlugin,
   ],
 
   experiments: {
@@ -147,6 +147,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     adsEnabled: ADS_ENABLED,
     admobBannerUnitIdIos: process.env.ADMOB_BANNER_UNIT_ID_IOS ?? '',
     admobBannerUnitIdAndroid: process.env.ADMOB_BANNER_UNIT_ID_ANDROID ?? '',
+    // 0 means "let AdMob's own auto-refresh own the cadence" - see .env.example.
+    admobBannerRefreshSeconds: Number(process.env.ADMOB_BANNER_REFRESH_SECONDS ?? 0),
 
     // Telemetry. Empty values keep the corresponding SDK inert, so the app runs
     // normally with no accounts configured.
