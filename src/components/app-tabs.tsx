@@ -80,7 +80,7 @@ export default function AppTabs() {
   return (
     <TopInsetProvider contentTopInset={contentTopInset} contentTop={contentTop}>
       <View style={[styles.root, { backgroundColor: theme.background }]}>
-        {showAdBanner ? <AdBanner onHeightChange={setAdHeight} /> : null}
+        {/* {showAdBanner ? <AdBanner onHeightChange={setAdHeight} /> : null} */}
         <View style={styles.body}>
           <Tabs>
             <TabSlot />
@@ -211,7 +211,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
-    paddingBottom: Platform.select({ ios: Spacing.four, android: Spacing.three }),
   },
   tabButton: {
     flex: 1,

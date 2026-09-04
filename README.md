@@ -56,6 +56,124 @@ Part of the `final_code/` monorepo alongside the NestJS backend (`api/`, `worker
    pnpm web
    ```
 
+## Internal Documentation
+### Execute clean build
+1. Reset builds
+   ```bash
+   npx expo prebuild --clean
+   ```
+
+2. Restore changes
+#### Android
+- Put jks file in android/app
+- Put credentials in android/gradle.properties
+   ```bash
+   MYAPP_UPLOAD_STORE_FILE={name-of-file-jks-or-keystore}
+   MYAPP_UPLOAD_KEY_ALIAS={key-alias}
+   MYAPP_UPLOAD_STORE_PASSWORD={store-password}
+   MYAPP_UPLOAD_KEY_PASSWORD={key-password}
+   ```
+- Add the next lines to android/app/build.gradle
+```gradle
+android {
+    ... 
+    signingConfigs {
+        release {
+            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                storePassword MYAPP_UPLOAD_STORE_PASSWORD
+                keyAlias MYAPP_UPLOAD_KEY_ALIAS
+                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+            }
+        }
+    }
+    buildTypes {
+        release {
+            ... 
+            signingConfig signingConfigs.release
+        }
+    }
+}
+```
+#### IOS
+
+### App Name Localization (Native)
+
+The app name displayed on the device home screen changes based on the device's language.
+
+#### iOS
+
+1. Run `npx expo prebuild --clean --platform ios` to regenerate the iOS project.
+
+2. Create localized `InfoPlist.strings` files for each language:
+
+   **Spanish** (`ios/hebrewcalendar/es.lproj/InfoPlist.strings`):
+   ```
+   "CFBundleDisplayName" = "Calendario Hebreo";
+   ```
+
+   **English** (`ios/hebrewcalendar/en.lproj/InfoPlist.strings`):
+   ```
+   "CFBundleDisplayName" = "Hebrew Calendar";
+   ```
+
+3. To add a new language, create the corresponding `.lproj` directory and `InfoPlist.strings` file:
+   ```bash
+   mkdir -p ios/hebrewcalendar/<language-code>.lproj
+   ```
+
+#### Android
+
+1. Run `npx expo prebuild --clean --platform android` to regenerate the Android project.
+
+2. Remove from `strings.xml` on (`android/app/src/main/res/values/strings.xml`)
+    ```xml
+    <string name="app_name">Calendario Hebreo</string>
+    ```
+
+3. Create localized `strings.xml` files for each language:
+
+   **Spanish** (`android/app/src/main/res/values-es/strings.xml`):
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <resources>
+       <string name="app_name">Calendario Hebreo</string>
+   </resources>
+   ```
+
+   **English** (`android/app/src/main/res/values-en/strings.xml`):
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <resources>
+       <string name="app_name">Hebrew Calendar</string>
+   </resources>
+   ```
+
+3. To add a new language, create the corresponding `values-<language-code>` directory and `strings.xml` file:
+   ```bash
+   mkdir -p android/app/src/main/res/values-<language-code>
+   ```
+
+## Generate Release Build
+1. Change the versionCode and versionName on android/app/build.gradle
+   ```gradle
+   android {
+       ... 
+       defaultConfig {
+           versionCode 10 // increment this
+           versionName "1.0.$versionCode" // increment this
+       }
+   }
+   ```
+2. Generate release build
+   ```bash
+   cd android
+   ./gradlew app:bundleRelease
+   cd ..
+   ```
+Find the generated app bundle in `android/app/build/outputs/bundle/release/app-release.aab`
+
+
 ## Offline support
 
 The app is used inside supermarkets, where connectivity is worst. Server responses are cached by

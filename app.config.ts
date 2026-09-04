@@ -74,24 +74,26 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/images/icon.png',
   scheme: 'kosherpass',
   userInterfaceStyle: 'automatic',
-
+  platforms: ['ios', 'android'],
   ios: {
     icon: './assets/icons/apple.icon',
     bundleIdentifier: 'com.kosherpass.app',
   },
-
   android: {
+    predictiveBackGestureEnabled: false,
+    package: 'com.kosherpass.app',
+    versionCode: 1,
     adaptiveIcon: {
       backgroundColor: '#FAF9F6',
       backgroundImage: './assets/images/android-icon-background.png',
     },
-    predictiveBackGestureEnabled: false,
-    // RECORD_AUDIO is deliberately absent: the app only reads barcodes, it never
-    // captures audio. expo-camera would add it by default, which is why the
-    // plugin below opts out - an unused microphone permission is a store-review
-    // flag and a trust cost for no benefit.
+    blockedPermissions: [
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.VIBRATE"
+    ],
     permissions: ['android.permission.CAMERA'],
-    package: 'com.kosherpass.app',
   },
 
   plugins: [
@@ -117,6 +119,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         userTrackingPermission: 'Allow Kosher Pass to show you personalized ads.',
       },
+    ],
+    [
+      "expo-build-properties",
+      {
+        "android": {
+          "enableShrinkResourcesInReleaseBuilds": true,
+          "enableMinifyInReleaseBuilds": true
+        }
+      }
     ],
     "expo-font",
     "expo-image",

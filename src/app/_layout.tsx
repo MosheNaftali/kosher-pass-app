@@ -50,14 +50,7 @@ export default function TabLayout() {
         <I18nextProvider i18n={i18n}>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <SavedItemsProvider>
-              {/*
-                Only the horizontal edges are handled here. The top edge is
-                owned by the ad banner / `useTopInset` (see
-                `@/hooks/use-top-inset`) and the bottom by each screen's own
-                anchored chrome, so letting SafeAreaView inset those too
-                double-padded every screen.
-              */}
-              <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+              <SafeAreaView style={styles.safeArea}>
                 <ScreenTracker />
                 <AppTabs />
               </SafeAreaView>

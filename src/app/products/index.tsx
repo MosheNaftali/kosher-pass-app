@@ -355,7 +355,7 @@ export default function ProductsScreen() {
               styles.sheet,
               {
                 backgroundColor: theme.surface,
-                paddingBottom: insets.bottom + Spacing.four,
+                paddingBottom: Spacing.four,
               },
             ]}>
             <View style={styles.sheetHandle}>

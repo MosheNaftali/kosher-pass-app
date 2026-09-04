@@ -1,7 +1,6 @@
 import { useSegments } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
@@ -97,7 +96,6 @@ export interface AdBannerProps {
 
 export function AdBanner({ onHeightChange }: AdBannerProps) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const segments = useSegments();
   const [nonPersonalizedOnly, setNonPersonalizedOnly] = useState(false);
@@ -156,7 +154,6 @@ export function AdBanner({ onHeightChange }: AdBannerProps) {
       style={[
         styles.container,
         {
-          paddingTop: insets.top,
           backgroundColor: theme.surface,
           borderBottomColor: theme.borderSubtle,
         },
