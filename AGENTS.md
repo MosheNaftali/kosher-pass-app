@@ -85,8 +85,8 @@ app/
 │   └── reset-project.js            # Bootstrap fresh project state
 └── src/
     ├── app/                        # File-based routes (Expo Router)
-    │   ├── _layout.tsx             # Root layout — ThemeProvider + SavedItemsProvider + AppTabs
-    │   ├── index.tsx               # Entry route (/) - redirects to /alerts while Discover is hidden
+    │   ├── _layout.tsx             # Root layout — ThemeProvider + SavedItemsProvider + AppTabs; `anchor: 'alerts/index'` sets the landing tab
+    │   ├── index.tsx               # Fallback route (/) - redirects to /alerts; the landing tab comes from the anchor, not this file
     │   ├── discover.tsx            # Discover / Home screen (route: /discover) - tab hidden, see DISCOVER_ENABLED
     │   ├── alerts/
     │   │   └── index.tsx           # Alerts tab (route: /alerts) - landing screen
@@ -304,6 +304,19 @@ Every screen and component must work on all three platforms. Test or consider be
 - iOS (native navigation, safe areas, SwiftUI-backed `@expo/ui`)
 - Android (Jetpack Compose-backed `@expo/ui`, predictive back gesture disabled)
 - Web (static export SPA, DOM-backed `@expo/ui`, CSS modules for web-only styles)
+
+### 7. No comments except JSDoc documentation
+
+Do **not** write inline or block comments in the code. The only exception is **JSDoc**
+(`/** ... */`) documenting a public API — an exported function, component, hook, type or constant —
+where the *why*, the contract, or a non-obvious constraint is not already clear from the name and
+types.
+
+- **Allowed:** a JSDoc block above an exported symbol explaining behavior, parameters, return
+  value, or a subtle invariant.
+- **Forbidden:** explanatory `//` or `/* ... */` comments inside function bodies, section banners,
+  commented-out code, "what this does" narration, or restating the code in words.
+- When a comment would be needed to explain *what* the code does, rename or extract instead.
 
 ---
 
@@ -682,6 +695,9 @@ const { locale, setLocale } = useLocale();
 - Wraps everything in `ThemeProvider` (from `expo-router`, with `DarkTheme`/`DefaultTheme`).
 - Wraps everything in `SavedItemsProvider` for favorites and shopping list state.
 - Renders `AppTabs` (custom tab navigator): Alerts (`/alerts`), Products (`/products`), My List (`/my-list`), Agencies (`/agencies`), About (`/about`). Scan (`/scan`) and Discover (`/discover`) are currently hidden - see "Hidden tabs" below.
+- Exports `unstable_settings = { anchor: 'alerts/index' }` so the headless tab navigator lands on
+  Alerts instead of the shortest route name. See "Headless tabs register *only* the routes a
+  `TabTrigger` points at" below before changing the tab set.
 - `SafeAreaView` handles the **horizontal edges only**. The top edge belongs to `AppTabs`, which
   either gives it to the ad banner or hands it to screens through `useTopInset()` - see the ads
   pattern below. Never add `edges={['top']}` here: it would double-pad every screen.
@@ -746,12 +762,36 @@ inline in `tabKeys` (its route, `src/app/scan.tsx`, is untouched).
 - `DISCOVER_ENABLED = false` drops its entry from `tabKeys`.
 - The screen itself lives at `src/app/discover.tsx` (route `/discover`), reachable by URL but not
   linked from anywhere.
-- `src/app/index.tsx` is a `<Redirect href="/alerts" />`, because `/` is still the entry route and
-  would otherwise render a screen with no tab selected behind it.
+- `src/app/index.tsx` is a `<Redirect href="/alerts" />` kept as a fallback for the `/` URL.
+  **It does not run on launch** - see the anchor note below - it only matters if something
+  navigates to `/` while the app is already running.
+
+#### Headless tabs register *only* the routes a `TabTrigger` points at
+
+`AppTabs` uses Expo Router's **headless** `Tabs`, and its `TabList` is the navigator's entire
+screen list. Routes with no trigger - `index`, `discover`, `scan` - are **not** registered as
+screens, so an `index.tsx` that returns `<Redirect />` never renders on launch and the navigator
+falls back to its default initial screen.
+
+That default is the first screen after `sortRoutes`, which sorts non-dynamic routes by **name
+length**. With no anchor the five tabs are ordered `about` (5) < `alerts` (6) < `my-list` (7) <
+`products`/`agencies` (8), so About became the landing screen the moment it was added.
+
+`src/app/_layout.tsx` therefore exports `unstable_settings = { anchor: 'alerts/index' }`. `anchor`
+pins both the navigator's `initialRouteName` and the first position in the sorted screen list, so
+Alerts is the landing screen and the fallback when `/` resolves to no screen. **Any change to the
+landing tab must update the anchor** - reordering `tabKeys` is not enough.
+
+The anchor is matched against the route node's `route`, and a directory's `index.tsx` keeps its
+`/index` suffix there (`alerts/index.tsx` -> `alerts/index`, while a flat `about.tsx` -> `about`).
+An anchor that does not match exactly fails at startup with `Couldn't find a screen named ...
+to use as 'initialRouteName'`. When in doubt, log the route tree or check the valid-options list in
+the `invalid anchor` error, which enumerates every accepted name.
 
 To restore Discover: flip the flag to `true`, delete `src/app/index.tsx`, rename `discover.tsx` back
-to `index.tsx`, and point the tab's `href` back at `/`. Both restorations bring the bar to six
-entries - see "Keep the visible entry count odd" above.
+to `index.tsx`, point the tab's `href` back at `/`, and update the anchor in `_layout.tsx` if
+Discover should land first. Both restorations bring the bar to six entries - see "Keep the visible
+entry count odd" above.
 
 ---
 
@@ -1541,6 +1581,7 @@ The AI must fetch the versioned docs, not guess:
 - `@expo/ui` universal components preferred over raw RN primitives for interactive controls.
 - Icons go through `Icon` from `@/components/ui/icon` — never `expo-symbols`' `SymbolView` directly; new glyphs get a Material entry in `src/constants/icons.ts` in the same change.
 - English only — code, comments, logs, commits.
+- No comments except JSDoc on exported public APIs — never narrate code inline.
 - Loading, error, empty states required on every data-fetching screen.
 - No secrets in source code — use env config + `expo-secure-store`.
 - Config is read through `Config` in `@/constants/config`, never `Constants.expoConfig.extra` directly.
