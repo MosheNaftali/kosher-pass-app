@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -26,7 +26,7 @@ export function QuantityStepper({ quantity, onIncrease, onDecrease }: QuantitySt
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.decreaseQuantity')}>
-        <SymbolView
+        <Icon
           name={{ ios: 'minus', web: 'remove' }}
           tintColor={quantity > 1 ? theme.text : theme.textMuted}
           size={16}
@@ -44,7 +44,7 @@ export function QuantityStepper({ quantity, onIncrease, onDecrease }: QuantitySt
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.increaseQuantity')}>
-        <SymbolView
+        <Icon
           name={{ ios: 'plus', web: 'add' }}
           tintColor={theme.text}
           size={16}

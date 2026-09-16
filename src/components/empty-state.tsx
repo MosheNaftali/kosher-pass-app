@@ -1,4 +1,5 @@
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { type SFSymbol } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from './themed-text';
@@ -17,7 +18,7 @@ export function EmptyState({ icon, title, message }: EmptyStateProps) {
 
   return (
     <View style={styles.container}>
-      <SymbolView name={icon} tintColor={theme.textMuted} size={56} weight="light" />
+      <Icon name={icon} tintColor={theme.textMuted} size={56} weight="light" />
       <ThemedText type="h4" style={styles.title}>
         {title}
       </ThemedText>

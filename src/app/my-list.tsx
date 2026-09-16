@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -263,7 +263,7 @@ function ShoppingListRow({
         accessibilityLabel={t(
           item.purchased ? 'common.a11y.markNotPurchased' : 'common.a11y.markPurchased'
         )}>
-        <SymbolView
+        <Icon
           name={item.purchased ? 'checkmark.circle.fill' : 'circle'}
           tintColor={item.purchased ? theme.success : theme.border}
           size={24}
@@ -309,7 +309,7 @@ function ShoppingListRow({
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t('common.a11y.removeFromList')}>
-          <SymbolView name="trash" tintColor={theme.error} size={18} />
+          <Icon name="trash" tintColor={theme.error} size={18} />
         </Pressable>
       </View>
     </ThemedView>

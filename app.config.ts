@@ -69,7 +69,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Kosher Pass',
   slug: 'kosher-pass',
-  version: '1.0.0',
+  version: '1.0.2',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'kosherpass',
@@ -82,16 +82,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     predictiveBackGestureEnabled: false,
     package: 'com.kosherpass.app',
-    versionCode: 1,
+    versionCode: 3,
     adaptiveIcon: {
       backgroundColor: '#FAF9F6',
       backgroundImage: './assets/images/android-icon-background.png',
     },
     blockedPermissions: [
-      "android.permission.ACCESS_NETWORK_STATE",
       "android.permission.READ_EXTERNAL_STORAGE",
-      "android.permission.WRITE_EXTERNAL_STORAGE",
-      "android.permission.VIBRATE"
+      "android.permission.WRITE_EXTERNAL_STORAGE"
     ],
     permissions: ['android.permission.CAMERA'],
   },

@@ -1,5 +1,6 @@
 import { Image, type ImageLoadEventData } from 'expo-image';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { type SFSymbol } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -122,7 +123,7 @@ export function AlertDetailSheet({
 
                 <View style={styles.badgeRow}>
                   <View style={[styles.severityBadge, { backgroundColor: `${theme[colorKey]}1A` }]}>
-                    <SymbolView
+                    <Icon
                       name={SEVERITY_ICON[alert.severity]}
                       tintColor={theme[colorKey]}
                       size={13}
@@ -172,7 +173,7 @@ export function AlertDetailSheet({
                     <ThemedText type="smallMedium" themeColor="accent">
                       {t('alerts.viewSource')}
                     </ThemedText>
-                    <SymbolView name="arrow.up.right" tintColor={theme.accent} size={12} />
+                    <Icon name="arrow.up.right" tintColor={theme.accent} size={12} />
                   </Pressable>
                 )}
               </ScrollView>
@@ -210,7 +211,7 @@ export function AlertDetailSheet({
                     <ThemedText type="bodyMedium" themeColor="accentForeground">
                       {t('alerts.viewSource')}
                     </ThemedText>
-                    <SymbolView name="arrow.up.right" tintColor={theme.accentForeground} size={13} />
+                    <Icon name="arrow.up.right" tintColor={theme.accentForeground} size={13} />
                   </Pressable>
                 ) : null}
               </View>

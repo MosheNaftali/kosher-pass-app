@@ -1,11 +1,12 @@
-import { type Href, useSegments } from 'expo-router';
-import { Tabs, TabList, TabSlot, TabTrigger, type TabTriggerSlotProps } from 'expo-router/ui';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
+import { useSegments, type Href } from 'expo-router';
+import { TabList, Tabs, TabSlot, TabTrigger, type TabTriggerSlotProps } from 'expo-router/ui';
+import { type SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 
 import { AdBanner, isAdBannerAvailable } from './ad-banner';
 import { OfflineBanner } from './offline-banner';
@@ -29,9 +30,10 @@ interface TabKey {
 // `src/app/index.tsx` redirects to the first tab while it is off.
 //
 // Note when restoring it: the elevated Scan button only sits in the middle of
-// the bar when the same number of tabs flanks it. Bringing Discover back makes
-// six entries and pushes it off centre again - drop another tab (or move one
-// into a screen header) at the same time.
+// the bar when the same number of tabs flanks it. The bar currently renders
+// five entries (the Scan trigger is commented out below), so restoring Discover
+// - or Scan - makes six and pulls that button off centre. Drop another tab (or
+// move one into a screen header) at the same time.
 const DISCOVER_ENABLED = false;
 
 function useTabConfig() {
@@ -50,9 +52,10 @@ function useTabConfig() {
       : []),
     { name: 'alerts', href: '/alerts', translationKey: 'tabs.alerts', icon: 'bell' },
     { name: 'products', href: '/products', translationKey: 'tabs.products', icon: 'cube.box' },
-    { name: 'scan', href: '/scan', translationKey: 'tabs.scan', icon: 'barcode.viewfinder', isScan: true },
+    // { name: 'scan', href: '/scan', translationKey: 'tabs.scan', icon: 'barcode.viewfinder', isScan: true },
     { name: 'my-list', href: '/my-list', translationKey: 'tabs.myList', icon: 'cart' },
     { name: 'agencies', href: '/agencies', translationKey: 'tabs.agencies', icon: 'building.2' },
+    { name: 'about', href: '/about', translationKey: 'tabs.about', icon: 'info.circle' },
   ];
 
   return tabKeys.map(tab => ({ ...tab, label: t(tab.translationKey) }));
@@ -80,7 +83,7 @@ export default function AppTabs() {
   return (
     <TopInsetProvider contentTopInset={contentTopInset} contentTop={contentTop}>
       <View style={[styles.root, { backgroundColor: theme.background }]}>
-        {/* {showAdBanner ? <AdBanner onHeightChange={setAdHeight} /> : null} */}
+        {showAdBanner ? <AdBanner onHeightChange={setAdHeight} /> : null}
         <View style={styles.body}>
           <Tabs>
             <TabSlot />
@@ -101,10 +104,6 @@ export default function AppTabs() {
             </TabList>
           </Tabs>
         </View>
-        {/*
-          Lives here rather than in the root layout so it can float *below* the
-          banner: an app-owned overlay covering an ad is an AdMob violation.
-        */}
         <OfflineBanner />
       </View>
     </TopInsetProvider>
@@ -144,7 +143,7 @@ function TabButton({
             transform: [{ scale }],
           },
         ]}>
-        <SymbolView
+        <Icon
           name={icon}
           tintColor={isFocused ? theme.accent : theme.textMuted}
           size={22}
@@ -179,7 +178,7 @@ function ScanTabTrigger({ tab }: { tab: TabConfig }) {
         accessibilityRole="tab"
         accessibilityLabel={tab.label}>
         <View style={[styles.scanButton, { backgroundColor: theme.accent }, Shadows.md]}>
-          <SymbolView
+          <Icon
             name={tab.icon}
             tintColor={theme.primaryForeground}
             size={28}

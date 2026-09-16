@@ -204,7 +204,8 @@
     "products": "Productos",
     "scan": "Escanear",
     "myList": "Mi Lista",
-    "agencies": "Agencias"
+    "agencies": "Agencias",
+    "about": "Acerca de"
   },
   "discover": {
     "heroTitle": "Descubrir",
@@ -319,19 +320,18 @@
   },
   "about": {
     "heroTitle": "Acerca de",
-    "developer": "Desarrollador",
-    "developerName": "Tu Nombre",
-    "developerRole": "Desarrollador Móvil y Web",
-    "developerBio": "Apasionado por construir experiencias móviles útiles y bien elaboradas. Especializado en React Native, Expo y tecnologías web modernas.",
     "appName": "Kosher Pass",
-    "appTagline": "Productos Kosher, verificados.",
+    "appTagline": "Productos kosher verificados.",
     "version": "Versión {{version}}",
+    "dataTitle": "Sobre los datos",
+    "dataBody": "Cada producto está verificado por una agencia certificadora. Cada ficha muestra su certificado y cuándo se actualizó por última vez.",
+    "disclaimerTitle": "Antes de comprar",
+    "disclaimerBody": "La información proviene de cada agencia. Verifica siempre el certificado vigente.",
     "contactSection": "Contacto",
-    "contactSubtitle": "Nos encantaría saber de ti. Escríbenos cuando quieras.",
     "feedbackButton": "Sugerencias y Comentarios",
     "feedbackDescription": "Comparte tus ideas o reporta un problema",
     "servicesButton": "Servicios de Desarrollo",
-    "servicesDescription": "¿Necesitas una app o sitio web? Hablemos",
+    "servicesDescription": "¿Necesitas servicios de desarrollo? Hablemos.",
     "copyright": "© {{year}} Kosher Pass. Todos los derechos reservados."
   }
 }

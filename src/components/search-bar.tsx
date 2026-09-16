@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Platform, Pressable, StyleSheet, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -21,7 +21,7 @@ export function SearchBar({ value, onChangeText, placeholder, autoFocus, onSubmi
 
   return (
     <ThemedView type="surface" style={styles.container}>
-      <SymbolView
+      <Icon
         name={{ ios: 'magnifyingglass', web: 'search' }}
         tintColor={theme.textMuted}
         size={18}
@@ -44,7 +44,7 @@ export function SearchBar({ value, onChangeText, placeholder, autoFocus, onSubmi
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t('common.a11y.clearSearch')}>
-          <SymbolView
+          <Icon
             name={{ ios: 'xmark.circle.fill', web: 'close' }}
             tintColor={theme.textMuted}
             size={18}

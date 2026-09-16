@@ -1,5 +1,5 @@
 import { useIsRestoring, onlineManager } from '@tanstack/react-query';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -42,7 +42,7 @@ export function OfflineBanner() {
       accessibilityRole="alert"
       accessibilityLiveRegion="polite">
       <View style={[styles.banner, { backgroundColor: theme.warning }]}>
-        <SymbolView
+        <Icon
           name={{ ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' }}
           tintColor={theme.textInverse}
           size={16}

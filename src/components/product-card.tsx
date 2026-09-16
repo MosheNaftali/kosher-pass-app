@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -110,7 +110,7 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
             <KashrutBadge level={product.kashrutLevel} size="sm" showMehadrin={product.isMehadrin} />
             {note && (
               <View style={styles.noteHint}>
-                <SymbolView name={noteIcon} size={12} weight="semibold" tintColor={theme.warning} />
+                <Icon name={noteIcon} size={12} weight="semibold" tintColor={theme.warning} />
                 <ThemedText
                   type="caption"
                   style={[styles.noteHintText, { color: theme.warning }]}

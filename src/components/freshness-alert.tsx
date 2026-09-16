@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -50,7 +50,7 @@ export function FreshnessAlert({ updatedAt }: FreshnessAlertProps) {
         { backgroundColor: `${theme[colorKey]}14`, borderColor: `${theme[colorKey]}55` },
       ]}>
       <View style={styles.iconWrap}>
-        <SymbolView
+        <Icon
           name={tierIcon[tier]}
           size={18}
           weight="bold"

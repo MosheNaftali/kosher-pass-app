@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -168,7 +168,7 @@ export default function ProductDetailScreen() {
         ]}
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.goBack')}>
-        <SymbolView name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
+        <Icon name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
       </Pressable>
 
       <ScrollView
@@ -293,7 +293,7 @@ export default function ProductDetailScreen() {
                   <ThemedText type="smallMedium" themeColor="accent">
                     {t('products.viewScan')}
                   </ThemedText>
-                  <SymbolView name="arrow.up.right" tintColor={theme.accent} size={14} />
+                  <Icon name="arrow.up.right" tintColor={theme.accent} size={14} />
                 </Pressable>
               </ExternalLink>
             )}
@@ -333,7 +333,7 @@ export default function ProductDetailScreen() {
                     </ThemedText>
                   )}
                 </View>
-                <SymbolView name="chevron.right" tintColor={theme.textMuted} size={16} />
+                <Icon name="chevron.right" tintColor={theme.textMuted} size={16} />
               </View>
             </Pressable>
           </ThemedView>
@@ -352,7 +352,7 @@ export default function ProductDetailScreen() {
             styles.actionButton,
             { backgroundColor: inList ? theme.success : theme.accent },
           ]}>
-          <SymbolView
+          <Icon
             name={inList ? 'checkmark' : 'cart.badge.plus'}
             tintColor={theme.primaryForeground}
             size={20}

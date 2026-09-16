@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -47,7 +47,7 @@ export function AgencyRow({
           />
         ) : (
           <ThemedView type="surfaceElevated" style={styles.logoPlaceholder}>
-            <SymbolView
+            <Icon
               name={{ ios: 'building.2.fill', web: 'apartment' }}
               tintColor={theme.textMuted}
               size={24}
@@ -76,7 +76,7 @@ export function AgencyRow({
             accessibilityLabel={t(
               isFavorite ? 'common.a11y.removeFromFavorites' : 'common.a11y.addToFavorites'
             )}>
-            <SymbolView
+            <Icon
               name={isFavorite ? 'star.fill' : 'star'}
               tintColor={isFavorite ? theme.accent : theme.border}
               size={22}

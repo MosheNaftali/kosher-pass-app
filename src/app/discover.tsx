@@ -1,4 +1,5 @@
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { type SFSymbol } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -123,12 +124,12 @@ export default function DiscoverScreen() {
               </ThemedText>
             </View>
             <Pressable
-              onPress={() => router.push('/alerts/about')}
+              onPress={() => router.push('/about')}
               hitSlop={Spacing.four}
               style={styles.aboutButton}
               accessibilityRole="button"
               accessibilityLabel={t('about.heroTitle')}>
-              <SymbolView
+              <Icon
                 name="info.circle"
                 tintColor={theme.textSecondary}
                 size={26}
@@ -224,7 +225,7 @@ function AlertsPreview({ alerts }: AlertsPreviewProps) {
   if (alerts.length === 0) {
     return (
       <ThemedView type="surface" style={styles.emptyAlerts}>
-        <SymbolView name="bell.slash" tintColor={theme.textMuted} size={24} />
+        <Icon name="bell.slash" tintColor={theme.textMuted} size={24} />
         <ThemedText type="small" themeColor="textSecondary">
           {t('discover.noAlerts')}
         </ThemedText>
@@ -255,7 +256,7 @@ function AlertsPreview({ alerts }: AlertsPreviewProps) {
               }
             }}>
             <ThemedView style={styles.alertRow}>
-              <SymbolView
+              <Icon
                 name={ALERT_SEVERITY_ICON[alert.severity]}
                 tintColor={theme[colorKey]}
                 size={18}
@@ -263,7 +264,7 @@ function AlertsPreview({ alerts }: AlertsPreviewProps) {
               <ThemedText type="smallMedium" numberOfLines={1} style={styles.alertText}>
                 {title}
               </ThemedText>
-              <SymbolView name="chevron.right" tintColor={theme.textMuted} size={14} />
+              <Icon name="chevron.right" tintColor={theme.textMuted} size={14} />
             </ThemedView>
           </Pressable>
         );

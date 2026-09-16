@@ -8,6 +8,7 @@ export const Colors = {
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
     surfaceContrast: '#1E2D3D',
+    surfaceContrastForeground: '#FFFFFF',
 
     primary: '#1E2D3D',
     primaryForeground: '#FFFFFF',
@@ -38,6 +39,7 @@ export const Colors = {
     surface: '#1C1C1E',
     surfaceElevated: '#2C2C2E',
     surfaceContrast: '#2C3A4A',
+    surfaceContrastForeground: '#FFFFFF',
 
     primary: '#D4A853',
     primaryForeground: '#1E2D3D',

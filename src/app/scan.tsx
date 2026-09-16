@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -210,7 +210,7 @@ export default function ScanScreen() {
             accessibilityState={{ selected: torch }}
             accessibilityLabel={t('common.a11y.toggleFlashlight')}
             style={[styles.iconButton, { backgroundColor: theme.surfaceElevated }]}>
-            <SymbolView
+            <Icon
               name={torch ? 'flashlight.on.fill' : 'flashlight.off.fill'}
               tintColor={theme.text}
               size={22}
@@ -223,7 +223,7 @@ export default function ScanScreen() {
             accessibilityState={{ expanded: showManual }}
             accessibilityLabel={t('common.a11y.enterBarcodeManually')}
             style={[styles.iconButton, { backgroundColor: theme.surfaceElevated }]}>
-            <SymbolView name="keyboard" tintColor={theme.text} size={22} />
+            <Icon name="keyboard" tintColor={theme.text} size={22} />
           </Pressable>
         </View>
 

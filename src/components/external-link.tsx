@@ -1,34 +1,86 @@
 import { type Href, Link } from 'expo-router';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
-import { cloneElement, isValidElement, type ComponentProps, type ReactNode } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import { StyleSheet } from 'react-native';
+import type { GestureResponderEvent } from 'react-native';
 
 type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: string };
 
-/** The `style` shape a `Pressable`/`View` child can carry. */
-type ChildStyleProps = { style?: unknown };
+/**
+ * The slice of `PressableStateCallbackType` a style callback actually reads.
+ * Kept local because `@expo/ui` augments that type with `focused`/`hovered`,
+ * which a touch-only call site has nothing to supply.
+ */
+type PressableStyleState = { pressed: boolean };
+
+/** The `style` and press-callback shape a `Pressable` child can carry. */
+type ChildProps = {
+  style?: unknown;
+  onPressIn?: (event: GestureResponderEvent) => void;
+  onPressOut?: (event: GestureResponderEvent) => void;
+};
 
 /**
- * Flattens an array `style` on an `asChild` child.
+ * Resolves the `style` on an `asChild` child into something the `Slot` can
+ * forward, and keeps a function style's pressed state in sync.
  *
- * `Link asChild` renders through expo-router's `Slot`, which **throws** in
- * development when the cloned child's `style` is an array
- * (`node_modules/expo-router/build/ui/Slot.js`). Composing a static
- * `StyleSheet` entry with a theme colour - `[styles.button, { backgroundColor }]`
- * - is the house pattern everywhere else in the app, so the flattening happens
- * here once instead of at every call site. A function style (Pressable's
- * `({ pressed }) => ...`) is not an array and passes through untouched.
+ * `Link asChild` renders through expo-router's `Slot`, which forwards props
+ * through radix's `mergeProps`. That helper merges `style` with
+ * `{ ...slotStyle, ...childStyle }`, so a **function** style:
+ *
+ * ```tsx
+ * style={({ pressed }) => [styles.card, { opacity: pressed ? 0.7 : 1 }]}
+ * ```
+ *
+ * is spread into an empty object and silently dropped - the card loses its
+ * layout and collapses to a column. An array is dropped the same way, and
+ * additionally throws in development (`Slot.js` checks for it).
+ *
+ * Both shapes are therefore resolved here, before the `Slot` sees them: an
+ * array is flattened, and a function is evaluated against the pressed state
+ * tracked by `ExternalLink`. The child's own press callbacks are chained so
+ * that state follows the real interaction. Call sites need no special handling.
  */
-function flattenChildStyle(children: ReactNode): ReactNode {
-  if (!isValidElement<ChildStyleProps>(children)) return children;
+export function resolveChildStyle(
+  children: ReactNode,
+  pressed: boolean,
+  onPressStateChange: (pressed: boolean) => void,
+): ReactNode {
+  if (!isValidElement<ChildProps>(children)) return children;
 
-  const { style } = children.props;
-  if (!Array.isArray(style)) return children;
+  const { style, onPressIn, onPressOut } = children.props;
 
-  return cloneElement(children, { style: StyleSheet.flatten(style) });
+  if (typeof style === 'function') {
+    const resolved = (style as (state: PressableStyleState) => unknown)({ pressed });
+    return cloneElement(children, {
+      style: StyleSheet.flatten(resolved),
+      onPressIn: (event: GestureResponderEvent) => {
+        onPressIn?.(event);
+        onPressStateChange(true);
+      },
+      onPressOut: (event: GestureResponderEvent) => {
+        onPressOut?.(event);
+        onPressStateChange(false);
+      },
+    });
+  }
+
+  if (Array.isArray(style)) {
+    return cloneElement(children, { style: StyleSheet.flatten(style) });
+  }
+
+  return children;
 }
 
 export function ExternalLink({ href, onPress, asChild, children, ...rest }: Props) {
+  const [pressed, setPressed] = useState(false);
+
   return (
     <Link
       target="_blank"
@@ -50,7 +102,7 @@ export function ExternalLink({ href, onPress, asChild, children, ...rest }: Prop
           });
         }
       }}>
-      {asChild ? flattenChildStyle(children) : children}
+      {asChild ? resolveChildStyle(children, pressed, setPressed) : children}
     </Link>
   );
 }

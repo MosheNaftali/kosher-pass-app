@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -114,7 +114,7 @@ export default function AgencyDetailScreen() {
           <Image source={{ uri: logoSource }} style={styles.logo} contentFit="contain" />
         ) : (
           <ThemedView type="surfaceElevated" style={styles.logoPlaceholder}>
-            <SymbolView name="building.2.fill" tintColor={theme.textMuted} size={40} />
+            <Icon name="building.2.fill" tintColor={theme.textMuted} size={40} />
           </ThemedView>
         )}
 
@@ -136,7 +136,7 @@ export default function AgencyDetailScreen() {
               isFavorite ? 'common.a11y.removeFromFavorites' : 'common.a11y.addToFavorites'
             )}
             style={[styles.favoriteButton, { backgroundColor: theme.surfaceElevated }]}>
-            <SymbolView
+            <Icon
               name={isFavorite ? 'star.fill' : 'star'}
               tintColor={isFavorite ? theme.accent : theme.textMuted}
               size={22}
@@ -152,7 +152,7 @@ export default function AgencyDetailScreen() {
                 accessibilityRole="link"
                 accessibilityLabel={t('agencies.website')}
                 style={[styles.websiteButton, { backgroundColor: theme.surfaceElevated }]}>
-                <SymbolView name="globe" tintColor={theme.textMuted} size={20} />
+                <Icon name="globe" tintColor={theme.textMuted} size={20} />
                 <ThemedText type="smallMedium" themeColor="textSecondary">
                   {t('agencies.website')}
                 </ThemedText>
@@ -163,7 +163,7 @@ export default function AgencyDetailScreen() {
 
         {agency.contactInfo && (
           <View style={styles.contactRow}>
-            <SymbolView name="envelope" tintColor={theme.textMuted} size={16} />
+            <Icon name="envelope" tintColor={theme.textMuted} size={16} />
             <ThemedText type="small" themeColor="textSecondary">
               {agency.contactInfo}
             </ThemedText>
@@ -207,7 +207,7 @@ export default function AgencyDetailScreen() {
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.goBack')}
         style={styles.backButton}>
-        <SymbolView name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
+        <Icon name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
       </Pressable>
 
       <FlatList

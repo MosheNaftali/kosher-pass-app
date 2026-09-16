@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 
 import { ThemedText } from './themed-text';
 
@@ -21,7 +21,7 @@ export function SectionHeader({ title, actionLabel, onAction }: SectionHeaderPro
       {actionLabel && (
         <ThemedText type="smallMedium" themeColor="accent" style={styles.action}>
           {actionLabel}
-          <SymbolView
+          <Icon
             name={{ ios: 'chevron.right', web: 'arrow_forward' }}
             tintColor={theme.accent}
             size={12}

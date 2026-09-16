@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -54,7 +54,7 @@ export function FreshnessIndicator({ updatedAt }: FreshnessIndicatorCompactProps
         { backgroundColor: `${theme[colorKey]}E6`, borderColor: theme.surface },
       ]}
       accessibilityRole="image">
-      <SymbolView name={icon} size={14} weight="bold" tintColor="#FFFFFF" />
+      <Icon name={icon} size={14} weight="bold" tintColor="#FFFFFF" />
     </View>
   );
 }
@@ -76,7 +76,7 @@ export function FreshnessIndicatorDetailed({
         styles.detailedBadge,
         { backgroundColor: `${theme[colorKey]}1A`, borderColor: `${theme[colorKey]}40` },
       ]}>
-      <SymbolView name={icon} size={14} weight="bold" tintColor={theme[colorKey]} />
+      <Icon name={icon} size={14} weight="bold" tintColor={theme[colorKey]} />
       <ThemedText type="smallMedium" style={{ color: theme[colorKey] }}>
         {showDaysAgo
           ? t('common.freshness.lastUpdatedDaysAgo', { days })

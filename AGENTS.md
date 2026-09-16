@@ -88,10 +88,9 @@ app/
     │   ├── _layout.tsx             # Root layout — ThemeProvider + SavedItemsProvider + AppTabs
     │   ├── index.tsx               # Entry route (/) - redirects to /alerts while Discover is hidden
     │   ├── discover.tsx            # Discover / Home screen (route: /discover) - tab hidden, see DISCOVER_ENABLED
-    │   ├── alerts/                 # Alerts stack
-    │   │   ├── _layout.tsx         # Stack layout
-    │   │   ├── index.tsx           # Alerts tab (route: /alerts) - landing screen; hosts the About entry point
-    │   │   └── about.tsx           # About screen (route: /alerts/about)
+    │   ├── alerts/
+    │   │   └── index.tsx           # Alerts tab (route: /alerts) - landing screen
+    │   ├── about.tsx               # About tab (route: /about) - app info + developer contact
     │   ├── scan.tsx                # Barcode scanner (route: /scan)
     │   ├── my-list.tsx             # Shopping list + favorite agencies (route: /my-list)
     │   ├── products/               # Products stack
@@ -104,7 +103,8 @@ app/
     │       └── [id].tsx            # Agency detail
     ├── components/                 # Reusable UI components
     │   ├── ui/                     # Generic design-system components
-    │   │   └── collapsible.tsx     # Animated accordion with chevron
+    │   │   ├── collapsible.tsx     # Animated accordion with chevron
+    │   │   └── icon.tsx            # Cross-platform Icon (SF Symbol -> Material Symbol)
     │   ├── app-tabs.tsx            # Custom bottom tab bar with elevated Scan button; hosts the top AdBanner + OfflineBanner
     │   ├── ad-banner.tsx           # Full-width AdMob banner anchored at the TOP of the app (native); hidden on /scan
     │   ├── ad-banner.web.tsx       # Web stub for AdBanner (renders nothing)
@@ -125,6 +125,7 @@ app/
     │   ├── empty-state.tsx         # Empty/illustrated state
     │   └── skeleton-card.tsx       # Shimmer loading placeholder
     ├── constants/
+    │   ├── icons.ts                # SF Symbol -> Material Symbol table + resolveIconName()
     │   └── theme.ts                # Design tokens: Colors, Fonts, Spacing, Radius, Shadows
     ├── utils/                      # Pure helpers (no React, no I/O)
     │   ├── agencies.ts             # Country grouping for the agencies directory
@@ -209,6 +210,12 @@ values are read from `process.env` at build time instead of being committed. Exp
 - `android.permissions` deliberately lists **only** `CAMERA`. `expo-camera` would add
   `RECORD_AUDIO` by default; the plugin is configured with `recordAudioAndroid: false` because the
   app never captures audio. An unused microphone permission is a store-review flag for no benefit.
+- **Never add `ACCESS_NETWORK_STATE` or `VIBRATE` to `android.blockedPermissions`.** NetInfo's
+  reachability listener is declared by `@react-native-community/netinfo`, and it silently reports
+  *offline* when the permission is stripped (its `ConnectivityManager` calls throw and are caught).
+  React Query then pauses every query and the app renders nothing behind the `OfflineBanner` — a
+  total blackout, not a visible error. `VIBRATE` is what `expo-haptics` needs on Android. Blocking
+  either is a functional regression disguised as permission hygiene.
 
 ### Environment configuration
 
@@ -256,6 +263,8 @@ Expo SDK 57 no longer supports importing from `@react-navigation/*` packages. Us
 3. **Custom wrappers** (`ThemedText`, `ThemedView`) — use these for consistent theming. Always import from `@/components/themed-text` and `@/components/themed-view` for text and containers.
 
 When choosing between `@expo/ui/universal` and platform-specific packages (`@expo/ui/swift-ui`, `@expo/ui/jetpack-compose`), always prefer universal unless you need a platform-specific control, modifier, or behavior that the universal API does not expose.
+
+**Icons go through `Icon` from `@/components/ui/icon`.** Never import `SymbolView` from `expo-symbols` directly. `expo-symbols` renders nothing on Android or web unless it is given a *per-platform* name — an SF Symbol string alone is iOS-only, which is exactly the bug that left the bottom tab bar blank on Android. The wrapper accepts the SF Symbol string the app is written against and resolves the Material Symbol equivalent through the table in `src/constants/icons.ts`, so `name="bell"` renders on all three platforms. A glyph that genuinely differs per platform can pass `{ ios, android, web }` instead; anything explicit wins over the table. **When you introduce a new glyph, add its SF -> Material entry to `src/constants/icons.ts` in the same change** — an unmapped name degrades to iOS-only (nothing on Android/web) rather than to a wrong icon.
 
 ### 3. Platform variants via file extensions, not runtime checks
 
@@ -408,6 +417,7 @@ export const Colors = {
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
     surfaceContrast: '#1E2D3D',
+    surfaceContrastForeground: '#FFFFFF',
     primary: '#1E2D3D',
     primaryForeground: '#FFFFFF',
     accent: '#D4A853',
@@ -671,7 +681,7 @@ const { locale, setLocale } = useLocale();
 
 - Wraps everything in `ThemeProvider` (from `expo-router`, with `DarkTheme`/`DefaultTheme`).
 - Wraps everything in `SavedItemsProvider` for favorites and shopping list state.
-- Renders `AppTabs` (custom tab navigator): Alerts (`/alerts`), Products (`/products`), Scan (`/scan`), My List (`/my-list`), Agencies (`/agencies`). Discover (`/discover`) is currently hidden - see "Hidden tabs" below.
+- Renders `AppTabs` (custom tab navigator): Alerts (`/alerts`), Products (`/products`), My List (`/my-list`), Agencies (`/agencies`), About (`/about`). Scan (`/scan`) and Discover (`/discover`) are currently hidden - see "Hidden tabs" below.
 - `SafeAreaView` handles the **horizontal edges only**. The top edge belongs to `AppTabs`, which
   either gives it to the ad banner or hands it to screens through `useTopInset()` - see the ads
   pattern below. Never add `edges={['top']}` here: it would double-pad every screen.
@@ -716,31 +726,32 @@ useFocusEffect(
 
 The app uses a single custom tab bar (`src/components/app-tabs.tsx`) built with `Tabs`, `TabList`, `TabTrigger`, `TabSlot` from `expo-router/ui`. It renders the same UI across iOS, Android, and Web, including an elevated Scan button in the center.
 
-**Keep the entry count odd.** Every entry is a `flex: 1` slot, so the raised Scan button only reads as centred when the same number of tabs flanks it — today two on each side. Adding or removing a tab without preserving that split visibly pulls the gold button off centre.
+**Keep the visible entry count odd.** Every entry is a `flex: 1` slot, so the raised Scan button only reads as centred when the same number of tabs flanks it. The Scan trigger is currently commented out, so the bar renders five entries (Alerts, Products, My List, Agencies, About) — restoring Scan, or Discover, makes six and pulls the gold button off centre unless another tab is dropped.
 
 Tabs:
-- **Alerts** (`/alerts`) — Landing tab: the notices published by the agencies the user follows. Also carries the `info.circle` entry point to `/alerts/about` in its header
+- **Alerts** (`/alerts`) — Landing tab: the notices published by the agencies the user follows
 - **Products** (`/products`) — Browse, search, and filter all products
-- **Scan** (`/scan`) — Barcode scanner (elevated, gold accent)
+- **Scan** (`/scan`) — Barcode scanner (elevated, gold accent) — currently commented out of `tabKeys`
 - **My List** (`/my-list`) — Shopping list + favorite agencies
 - **Agencies** (`/agencies`) — Certifying agencies directory
+- **About** (`/about`) — App info, version, and developer contact
 
 #### Hidden tabs
 
 A tab that has to disappear from the bar temporarily is gated by a module-level flag in
 `src/components/app-tabs.tsx` rather than deleted, so bringing it back is a one-line change and the
-screen keeps its git history. **Discover** is currently hidden this way:
+screen keeps its git history. **Discover** is currently hidden this way; **Scan** is commented out
+inline in `tabKeys` (its route, `src/app/scan.tsx`, is untouched).
 
 - `DISCOVER_ENABLED = false` drops its entry from `tabKeys`.
 - The screen itself lives at `src/app/discover.tsx` (route `/discover`), reachable by URL but not
   linked from anywhere.
 - `src/app/index.tsx` is a `<Redirect href="/alerts" />`, because `/` is still the entry route and
   would otherwise render a screen with no tab selected behind it.
-- Discover was the only route linking to `/alerts` and `/about`. Both were re-homed rather than
-  left orphaned: Alerts became the first tab, and About hangs off its header.
 
-To restore it: flip the flag to `true`, delete `src/app/index.tsx`, rename `discover.tsx` back to
-`index.tsx`, and point the tab's `href` back at `/`.
+To restore Discover: flip the flag to `true`, delete `src/app/index.tsx`, rename `discover.tsx` back
+to `index.tsx`, and point the tab's `href` back at `/`. Both restorations bring the bar to six
+entries - see "Keep the visible entry count odd" above.
 
 ---
 
@@ -1108,13 +1119,18 @@ helper `groupAgenciesByCountry(agencies, getCountryLabel)` in `@/utils/agencies`
 
 ### Pattern: `ExternalLink` with `asChild`
 
-`Link asChild` renders through expo-router's `Slot`, which **throws in development** when the
-cloned child's `style` prop is an array (`expo-router/build/ui/Slot.js`). Since composing a static
-`StyleSheet` entry with a theme colour (`[styles.button, { backgroundColor: theme.x }]`) is the
-house pattern, `ExternalLink` flattens an array style on its child with `StyleSheet.flatten` before
-handing it to `Link`. Call sites need no special handling. A **function** style
-(`({ pressed }) => [...]`) is not an array and passes through untouched — it is evaluated below the
-`Slot`. If another `asChild` wrapper around `Link` is ever added, it must repeat this flattening.
+`Link asChild` renders through expo-router's `Slot`, which forwards props through radix's
+`mergeProps`. That helper merges `style` with `{ ...slotStyle, ...childStyle }`, so **anything that
+is not a plain object is silently dropped**: an array style (`[styles.card, { borderColor }]`, the
+house pattern) is spread into `{}` and additionally **throws in development**
+(`expo-router/build/ui/Slot.js` checks for it), and a **function** style
+(`({ pressed }) => [...]`) is spread into `{}` too — which is what made the About screen's
+"Development Services" card collapse to a column instead of laying out as a row.
+
+`ExternalLink` therefore resolves both shapes on its child before handing it to `Link`:
+`StyleSheet.flatten` for an array, and for a function, evaluation against a pressed state it tracks
+through the child's own `onPressIn`/`onPressOut`. Call sites need no special handling. If another
+`asChild` wrapper around `Link` is ever added, it must repeat this resolution.
 
 ### Pattern: ads (AdMob banner anchored at the top)
 
@@ -1450,8 +1466,10 @@ before any change is considered done.
 | Response validation + anti-corruption renaming | `src/services/schemas.test.ts` |
 | URL scheme guards | `src/services/api.test.ts` |
 | Route-template cardinality guard | `src/services/telemetry/events.test.ts` |
+| Cross-platform icon-name resolution (SF -> Material) | `src/constants/icons.test.ts` |
 | Persisted shopping list validation | `src/hooks/use-saved-items.test.tsx` |
 | Root error boundary catch/report/retry | `src/components/app-error-boundary.test.tsx` |
+| `ExternalLink` child style resolution through `Link asChild` | `src/components/external-link.test.tsx` |
 
 The server side has its own suite: `pnpm test` from `server/`.
 
@@ -1521,6 +1539,7 @@ The AI must fetch the versioned docs, not guess:
 - TypeScript `strict: true` — no `any`.
 - Path aliases `@/` for cross-directory imports.
 - `@expo/ui` universal components preferred over raw RN primitives for interactive controls.
+- Icons go through `Icon` from `@/components/ui/icon` — never `expo-symbols`' `SymbolView` directly; new glyphs get a Material entry in `src/constants/icons.ts` in the same change.
 - English only — code, comments, logs, commits.
 - Loading, error, empty states required on every data-fetching screen.
 - No secrets in source code — use env config + `expo-secure-store`.

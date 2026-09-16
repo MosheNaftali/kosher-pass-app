@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { type SFSymbol } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,14 +19,14 @@ import { AlertDetailSheet } from '@/components/alert-detail-sheet';
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Layout, Radius, Spacing } from '@/constants/theme';
 import type { ThemeColor } from '@/constants/theme';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { useAlertsQuery, useFavoriteAgenciesQuery } from '@/hooks/use-queries';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
 import { useTopInset } from '@/hooks/use-top-inset';
-import { staggerDelay } from '@/utils/animation';
 import { buildAlerts, type AlertSeverity, type FeedAlert } from '@/utils/alerts';
+import { staggerDelay } from '@/utils/animation';
 
 const SEVERITY_COLOR: Record<AlertSeverity, ThemeColor> = {
   critical: 'error',
@@ -120,18 +121,6 @@ export default function AlertsScreen() {
     <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
       <View style={styles.header}>
         <ThemedText type="hero">{t('alerts.heroTitle')}</ThemedText>
-        {/*
-          Alerts is the app's landing tab, so it carries the entry point to the
-          About screen - the same top-right slot it occupied on Discover.
-        */}
-        <Pressable
-          onPress={() => router.push('/alerts/about')}
-          hitSlop={Spacing.four}
-          style={styles.aboutButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('about.heroTitle')}>
-          <SymbolView name="info.circle" tintColor={theme.textSecondary} size={26} />
-        </Pressable>
       </View>
 
       {loading ? (
@@ -251,7 +240,7 @@ function AlertRow({
           {alert.imageUrl ? (
             <Image source={{ uri: alert.imageUrl }} style={styles.iconImage} contentFit="cover" />
           ) : (
-            <SymbolView
+            <Icon
               name={SEVERITY_ICON[alert.severity]}
               tintColor={theme[colorKey]}
               size={22}
@@ -270,7 +259,7 @@ function AlertRow({
           )}
         </View>
 
-        <SymbolView name="chevron.right" tintColor={theme.textMuted} size={16} />
+        <Icon name="chevron.right" tintColor={theme.textMuted} size={16} />
       </ThemedView>
     </Pressable>
   );
@@ -281,18 +270,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
-  },
-  aboutButton: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.round,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   loader: {
     flex: 1,

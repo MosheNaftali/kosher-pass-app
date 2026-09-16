@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -58,7 +58,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
 
     return (
       <ThemedView style={styles.container}>
-        <SymbolView
+        <Icon
           name="exclamationmark.triangle"
           tintColor={Colors.light.textMuted}
           size={56}

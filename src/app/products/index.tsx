@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/ui/icon';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -478,7 +478,7 @@ function FilterTrigger({
           opacity: pressed ? 0.85 : 1,
         },
       ]}>
-      <SymbolView
+      <Icon
         name={{ ios: 'line.3.horizontal.decrease', android: 'tune', web: 'tune' }}
         size={20}
         weight="medium"
@@ -532,7 +532,7 @@ function ActiveFilterChip({
         {label}
       </ThemedText>
       {dismissable && (
-        <SymbolView
+        <Icon
           name={{ ios: 'xmark', android: 'close', web: 'close' }}
           size={12}
           weight="bold"
@@ -618,7 +618,7 @@ function ContinentRow({
             </ThemedText>
           </View>
         </View>
-        <SymbolView
+        <Icon
           name={{ ios: 'chevron.down', android: 'keyboard_arrow_down', web: 'keyboard_arrow_down' }}
           size={16}
           weight="semibold"
