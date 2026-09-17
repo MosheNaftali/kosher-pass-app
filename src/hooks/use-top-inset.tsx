@@ -1,8 +1,10 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Layout } from '@/constants/theme';
+
 /**
- * Where the top of a screen actually starts.
+ * Where a screen starts and how much room the floating tab bar takes.
  *
  * The AdMob banner is anchored above every screen and is laid out *in flow*, so
  * while it is on it already covers the status bar area and pushes the screen
@@ -24,6 +26,13 @@ export interface TopInset {
    * being laid out inside it.
    */
   contentTop: number;
+  /**
+   * Measured height of the floating tab bar. Screens that dock their own chrome
+   * to the bottom (the product detail CTA) have to sit exactly on top of it, so
+   * they need the real number - `Layout.tabBarHeight` is only the estimate used
+   * before the first layout pass.
+   */
+  tabBarHeight: number;
 }
 
 const TopInsetContext = createContext<TopInset | null>(null);
@@ -32,9 +41,14 @@ export interface TopInsetProviderProps extends TopInset {
   children: ReactNode;
 }
 
-export function TopInsetProvider({ contentTopInset, contentTop, children }: TopInsetProviderProps) {
+export function TopInsetProvider({
+  contentTopInset,
+  contentTop,
+  tabBarHeight,
+  children,
+}: TopInsetProviderProps) {
   return (
-    <TopInsetContext.Provider value={{ contentTopInset, contentTop }}>
+    <TopInsetContext.Provider value={{ contentTopInset, contentTop, tabBarHeight }}>
       {children}
     </TopInsetContext.Provider>
   );
@@ -46,5 +60,11 @@ export function useTopInset(): TopInset {
 
   // No provider means nothing is stacked above us (a test, or a screen rendered
   // outside the tab shell), so the plain safe-area inset is the right answer.
-  return value ?? { contentTopInset: insets.top, contentTop: insets.top };
+  return (
+    value ?? {
+      contentTopInset: insets.top,
+      contentTop: insets.top,
+      tabBarHeight: Layout.tabBarHeight,
+    }
+  );
 }

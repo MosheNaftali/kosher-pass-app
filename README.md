@@ -269,9 +269,9 @@ either intends. Turn the ad unit's automatic refresh off in the console before u
 ```
 src/
 ├── app/                  # File-based routes (Expo Router)
-│   ├── index.tsx         # Entry route (/) — redirects to /alerts
+│   ├── index.tsx         # Entry route (/) — redirects to /products
 │   ├── discover.tsx      # Discover / Home (tab currently hidden)
-│   ├── alerts/           # Alerts (landing tab) + About entry point
+│   ├── alerts/           # Alerts feed (notices from followed agencies)
 │   ├── scan.tsx          # Barcode scanner
 │   ├── my-list.tsx       # Shopping list + favorite agencies
 │   ├── products/         # Products stack

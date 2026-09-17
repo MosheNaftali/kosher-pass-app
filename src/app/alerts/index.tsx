@@ -23,7 +23,7 @@ import type { ThemeColor } from '@/constants/theme';
 import { Layout, Radius, Spacing } from '@/constants/theme';
 import { useAlertsQuery, useFavoriteAgenciesQuery } from '@/hooks/use-queries';
 import { useSavedItems } from '@/hooks/use-saved-items';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme, useTintAlpha } from '@/hooks/use-theme';
 import { useTopInset } from '@/hooks/use-top-inset';
 import { buildAlerts, type AlertSeverity, type FeedAlert } from '@/utils/alerts';
 import { staggerDelay } from '@/utils/animation';
@@ -208,6 +208,7 @@ function AlertRow({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const tintAlpha = useTintAlpha();
   const { t } = useTranslation();
 
   const colorKey = SEVERITY_COLOR[alert.severity];
@@ -236,7 +237,7 @@ function AlertRow({
             borderLeftColor: theme[colorKey],
           },
         ]}>
-        <View style={[styles.iconContainer, { backgroundColor: `${theme[colorKey]}1A` }]}>
+        <View style={[styles.iconContainer, { backgroundColor: `${theme[colorKey]}${tintAlpha}` }]}>
           {alert.imageUrl ? (
             <Image source={{ uri: alert.imageUrl }} style={styles.iconImage} contentFit="cover" />
           ) : (

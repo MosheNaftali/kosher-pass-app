@@ -44,10 +44,10 @@ export function OfflineBanner() {
       <View style={[styles.banner, { backgroundColor: theme.warning }]}>
         <Icon
           name={{ ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' }}
-          tintColor={theme.textInverse}
+          tintColor={theme.warningForeground}
           size={16}
         />
-        <ThemedText type="smallMedium" themeColor="textInverse" numberOfLines={1}>
+        <ThemedText type="smallMedium" themeColor="warningForeground" numberOfLines={1}>
           {t('common.offlineBanner')}
         </ThemedText>
       </View>

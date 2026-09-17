@@ -2,6 +2,7 @@ import { Icon } from '@/components/ui/icon';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,26 +10,26 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
 
-import { ExternalLink } from '@/components/external-link';
+import LogoImage from '@/assets/images/logo.png';
+import { BackButton } from '@/components/back-button';
 import { CertificateBadge } from '@/components/certificate-badge';
 import { EmptyState } from '@/components/empty-state';
+import { ExternalLink } from '@/components/external-link';
 import { FreshnessAlert } from '@/components/freshness-alert';
 import { FreshnessIndicatorDetailed } from '@/components/freshness-indicator';
 import { KashrutBadge } from '@/components/kashrut-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
+import { Radius, Shadows, Spacing } from '@/constants/theme';
+import { useProductQuery } from '@/hooks/use-queries';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { useTheme } from '@/hooks/use-theme';
 import { useTopInset } from '@/hooks/use-top-inset';
-import { useProductQuery } from '@/hooks/use-queries';
 import { isSafeExternalUrl, resolveMediaUrl } from '@/services/api';
 import { track } from '@/services/telemetry';
 import { getCountryTranslationKey } from '@/utils/countries';
 import { getFreshnessTier } from '@/utils/freshness';
-import LogoImage from '@/assets/images/logo.png';
 
 // Anchored footer: vertical padding + the action button's own height. Kept in
 // sync with `styles.footer` / `styles.actionButton` so the scroll content can
@@ -39,7 +40,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const theme = useTheme();
-  const { contentTopInset } = useTopInset();
+  const { contentTopInset, tabBarHeight } = useTopInset();
   const { t } = useTranslation();
   const { addToShoppingList, removeFromShoppingList, isInShoppingList } = useSavedItems();
 
@@ -160,33 +161,27 @@ export default function ProductDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Pressable
-        onPress={() => router.back()}
-        style={[
-          styles.backButton,
-          { top: contentTopInset + Spacing.two, backgroundColor: theme.surface },
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={t('common.a11y.goBack')}>
-        <Icon name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
-      </Pressable>
+      <BackButton onPress={() => router.back()} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: contentTopInset, paddingBottom: Layout.tabBarHeight + FooterHeight + Spacing.six },
+          { paddingTop: contentTopInset, paddingBottom: tabBarHeight + FooterHeight + Spacing.six },
         ]}>
-        <ThemedView type="surfaceElevated" style={styles.imageContainer}>
+        <ThemedView type="logoPlate" style={styles.imageContainer}>
           {imageSource ? (
             <Image source={{ uri: imageSource }} style={styles.image} contentFit="contain" />
           ) : (
-            <ThemedView type="surfaceElevated" style={styles.imagePlaceholder}>
+            <View style={styles.imagePlaceholder}>
               <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
-              <ThemedText type="h3" themeColor="textMuted" style={styles.placeholderText}>
+              <ThemedText
+                type="h3"
+                themeColor="logoPlateForeground"
+                style={styles.placeholderText}>
                 {t('products.noImage')}
               </ThemedText>
-            </ThemedView>
+            </View>
           )}
         </ThemedView>
 
@@ -312,19 +307,19 @@ export default function ProductDetailScreen() {
                 name: product.agency.name,
               })}>
               <View style={styles.agencyRow}>
-                {agencyLogoSource ? (
-                  <Image
-                    source={{ uri: agencyLogoSource }}
-                    style={styles.agencyLogo}
-                    contentFit="contain"
-                  />
-                ) : (
-                  <View style={[styles.agencyLogo, styles.agencyLogoPlaceholder, { backgroundColor: theme.border }]}>
-                    <ThemedText type="bodyBold" themeColor="textMuted">
+                <View style={[styles.agencyLogoPlate, { backgroundColor: theme.logoPlate }]}>
+                  {agencyLogoSource ? (
+                    <Image
+                      source={{ uri: agencyLogoSource }}
+                      style={styles.agencyLogo}
+                      contentFit="contain"
+                    />
+                  ) : (
+                    <ThemedText type="bodyBold" themeColor="logoPlateForeground">
                       {product.agency.name.charAt(0)}
                     </ThemedText>
-                  </View>
-                )}
+                  )}
+                </View>
                 <View style={styles.agencyInfo}>
                   <ThemedText type="bodyBold">{product.agency.name}</ThemedText>
                   {product.agency.country && (
@@ -342,7 +337,7 @@ export default function ProductDetailScreen() {
 
       <ThemedView
         type="surface"
-        style={[styles.footer, { borderTopColor: theme.borderSubtle }]}>
+        style={[styles.footer, { bottom: tabBarHeight, borderTopColor: theme.borderSubtle }]}>
         <Pressable
           onPress={handleToggleList}
           accessibilityRole="button"
@@ -354,10 +349,10 @@ export default function ProductDetailScreen() {
           ]}>
           <Icon
             name={inList ? 'checkmark' : 'cart.badge.plus'}
-            tintColor={theme.primaryForeground}
+            tintColor={inList ? theme.primaryForeground : theme.accentForeground}
             size={20}
           />
-          <ThemedText type="bodyMedium" themeColor="primaryForeground">
+          <ThemedText type="bodyMedium" themeColor={inList ? 'primaryForeground' : 'accentForeground'}>
             {inList ? t('products.addedToList') : t('products.addToList')}
           </ThemedText>
         </Pressable>
@@ -375,14 +370,6 @@ const styles = StyleSheet.create({
   },
   loader: {
     flex: 1,
-  },
-  backButton: {
-    position: 'absolute',
-    left: Spacing.four,
-    zIndex: 10,
-    padding: Spacing.two,
-    borderRadius: Radius.round,
-    ...Shadows.sm,
   },
   imageContainer: {
     width: '100%',
@@ -458,14 +445,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
   },
-  agencyLogo: {
+  agencyLogoPlate: {
     width: 40,
     height: 40,
     borderRadius: 20,
-  },
-  agencyLogoPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  agencyLogo: {
+    width: '100%',
+    height: '100%',
   },
   agencyInfo: {
     flex: 1,
@@ -483,8 +473,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    // Sits directly on top of the floating tab bar.
-    bottom: Layout.tabBarHeight,
+    // `bottom` is the measured tab-bar height, applied inline so the CTA sits
+    // flush on the bar instead of floating above it.
     left: 0,
     right: 0,
     paddingHorizontal: Spacing.four,

@@ -41,8 +41,8 @@ File-based routing via `expo-router`. Route path = file path.
 
 | Route path | File | Purpose |
 |---|---|---|
-| `/` | `src/app/index.tsx` | Discover / Home screen. |
-| `/alerts` | `src/app/alerts.tsx` | Full alerts list. |
+| `/` | `src/app/index.tsx` | Entry route — redirects to `/products`. |
+| `/alerts` | `src/app/alerts/index.tsx` | Alerts feed (notices from followed agencies). |
 | `/scan` | `src/app/scan.tsx` | Barcode scanner. |
 | `/my-list` | `src/app/my-list.tsx` | Shopping list + favorite agencies. |
 | `/about` | `src/app/about.tsx` | About screen. |

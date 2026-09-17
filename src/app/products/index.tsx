@@ -276,8 +276,7 @@ export default function ProductsScreen() {
                 label={item.label}
                 onPress={item.onRemove ?? openFilterSheet}
                 accent={theme.accent}
-                primaryForeground={theme.primaryForeground}
-                textInverse={theme.textInverse}
+                accentForeground={theme.accentForeground}
                 dismissable={Boolean(item.onRemove)}
                 removeHint={t('common.a11y.removeFilter', { name: item.label })}
               />
@@ -501,8 +500,7 @@ interface ActiveFilterChipProps {
   label: string;
   onPress: () => void;
   accent: string;
-  primaryForeground: string;
-  textInverse: string;
+  accentForeground: string;
   dismissable: boolean;
   removeHint: string;
 }
@@ -511,8 +509,7 @@ function ActiveFilterChip({
   label,
   onPress,
   accent,
-  primaryForeground,
-  textInverse,
+  accentForeground,
   dismissable,
   removeHint,
 }: ActiveFilterChipProps) {
@@ -526,9 +523,7 @@ function ActiveFilterChip({
         styles.activeChip,
         { backgroundColor: accent, opacity: pressed ? 0.85 : 1 },
       ]}>
-      <ThemedText
-        type="smallMedium"
-        style={{ color: dismissable ? primaryForeground : textInverse }}>
+      <ThemedText type="smallMedium" style={{ color: accentForeground }}>
         {label}
       </ThemedText>
       {dismissable && (
@@ -536,7 +531,7 @@ function ActiveFilterChip({
           name={{ ios: 'xmark', android: 'close', web: 'close' }}
           size={12}
           weight="bold"
-          tintColor={primaryForeground}
+          tintColor={accentForeground}
         />
       )}
     </Pressable>

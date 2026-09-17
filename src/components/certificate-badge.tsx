@@ -5,7 +5,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Radius, Spacing, type ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme, useTintAlpha } from '@/hooks/use-theme';
 import type { CertificateStatus } from '@/services/certificates';
 
 interface CertificateBadgeProps {
@@ -26,11 +26,12 @@ const statusColors: Record<CertificateStatus, ThemeColor> = {
 
 export function CertificateBadge({ status }: CertificateBadgeProps) {
   const theme = useTheme();
+  const tintAlpha = useTintAlpha();
   const { t } = useTranslation();
   const color = statusColors[status];
 
   return (
-    <ThemedView style={[styles.badge, { backgroundColor: `${theme[color]}15` }]}>
+    <ThemedView style={[styles.badge, { backgroundColor: `${theme[color]}${tintAlpha}` }]}>
       <ThemedText type="smallBold" style={{ color: theme[color] }}>
         {t(statusTranslationKeys[status])}
       </ThemedText>

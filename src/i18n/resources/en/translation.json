@@ -32,6 +32,8 @@
     "freshness": {
       "lastUpdated": "Last updated",
       "lastUpdatedDaysAgo": "Updated {{days}} days ago",
+      "updatedToday": "Updated today",
+      "lastUpdatedOneDayAgo": "Updated 1 day ago",
       "fresh": "Recently verified",
       "aging": "Verify periodically",
       "stale": "Needs verification",

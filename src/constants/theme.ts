@@ -25,7 +25,8 @@ export const Colors = {
     borderSubtle: '#F0EDE7',
 
     success: '#2D6A4F',
-    warning: '#B46A18',
+    warning: '#A85F12',
+    warningForeground: '#FFFFFF',
     error: '#B91C1C',
 
     dairy: '#4A7CB5',
@@ -33,6 +34,11 @@ export const Colors = {
     pareve: '#2D6A4F',
     chalavYisrael: '#5B4AB5',
     unknown: '#9CA3AF',
+
+    overlay: 'rgba(0, 0, 0, 0.55)',
+    overlayForeground: '#FFFFFF',
+    logoPlate: '#FFFFFF',
+    logoPlateForeground: '#6B7280',
   },
   dark: {
     background: '#111111',
@@ -49,25 +55,39 @@ export const Colors = {
 
     text: '#F0F0F0',
     textSecondary: '#9CA3AF',
-    textMuted: '#6B7280',
+    textMuted: '#8E939C',
     textInverse: '#1A1A1A',
 
-    border: '#2C2C2E',
-    borderSubtle: '#3A3A3C',
+    border: '#48484A',
+    borderSubtle: '#2C2C2E',
 
-    success: '#40916C',
+    success: '#52A882',
     warning: '#D48C2E',
+    warningForeground: '#1E2D3D',
     error: '#EF4444',
 
     dairy: '#6A9ACF',
     meat: '#D1796A',
-    pareve: '#40916C',
-    chalavYisrael: '#7E6AD1',
-    unknown: '#6B7280',
+    pareve: '#52A882',
+    chalavYisrael: '#9A88E0',
+    unknown: '#8E939C',
+
+    overlay: 'rgba(0, 0, 0, 0.55)',
+    overlayForeground: '#FFFFFF',
+    logoPlate: '#FFFFFF',
+    logoPlateForeground: '#6B7280',
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+/**
+ * Alpha suffix appended to a theme color to build a translucent fill
+ * (`${theme.accent}${tint}`). A tint that reads on a light surface is nearly
+ * invisible on a dark one, so the suffix is a function of the active scheme -
+ * read it through `useTintAlpha` rather than hardcoding one.
+ */
+export const TintAlpha = { light: '15', dark: '2A' } as const;
 
 export const KashrutLevelColors: Record<KashrutLevel, ThemeColor> = {
   unknown: 'unknown',

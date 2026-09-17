@@ -3,7 +3,6 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
 
 import { Radius, Spacing, type ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -54,7 +53,7 @@ export function FreshnessIndicator({ updatedAt }: FreshnessIndicatorCompactProps
         { backgroundColor: `${theme[colorKey]}E6`, borderColor: theme.surface },
       ]}
       accessibilityRole="image">
-      <Icon name={icon} size={14} weight="bold" tintColor="#FFFFFF" />
+      <Icon name={icon} size={14} weight="bold" tintColor={theme.primaryForeground} />
     </View>
   );
 }
@@ -68,21 +67,25 @@ export function FreshnessIndicatorDetailed({
   const tier = getFreshnessTier(updatedAt);
   const days = getDaysSince(updatedAt);
   const colorKey = tierColor[tier];
-  const icon = tierIcon[tier];
+
+  let label: string;
+  if (!Number.isFinite(days) || !showDaysAgo) {
+    label = t(tierTranslationKey[tier]);
+  } else if (days === 0) {
+    label = t('common.freshness.updatedToday');
+  } else if (days === 1) {
+    label = t('common.freshness.lastUpdatedOneDayAgo');
+  } else {
+    label = t('common.freshness.lastUpdatedDaysAgo', { days });
+  }
 
   return (
-    <ThemedView
-      style={[
-        styles.detailedBadge,
-        { backgroundColor: `${theme[colorKey]}1A`, borderColor: `${theme[colorKey]}40` },
-      ]}>
-      <Icon name={icon} size={14} weight="bold" tintColor={theme[colorKey]} />
-      <ThemedText type="smallMedium" style={{ color: theme[colorKey] }}>
-        {showDaysAgo
-          ? t('common.freshness.lastUpdatedDaysAgo', { days })
-          : t(tierTranslationKey[tier])}
+    <View style={styles.statusRow}>
+      <View style={[styles.statusDot, { backgroundColor: theme[colorKey] }]} />
+      <ThemedText type="caption" themeColor="textSecondary">
+        {label}
       </ThemedText>
-    </ThemedView>
+    </View>
   );
 }
 
@@ -95,14 +98,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
   },
-  detailedBadge: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: Spacing.two,
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
     borderRadius: Radius.round,
-    borderWidth: 1,
   },
 });

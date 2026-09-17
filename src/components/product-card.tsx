@@ -62,11 +62,11 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
             {
               backgroundColor: theme.surface,
               transform: [{ scale }],
-              borderColor: tier === 'outdated' ? theme.error : 'transparent',
-              borderWidth: tier === 'outdated' ? 1.5 : 0,
+              borderColor: tier === 'outdated' ? theme.error : theme.border,
+              borderWidth: tier === 'outdated' ? 1.5 : StyleSheet.hairlineWidth,
             },
           ]}>
-          <ThemedView style={styles.imageContainer}>
+          <ThemedView type="logoPlate" style={styles.imageContainer}>
             {imageSource ? (
               <Image
                 source={{ uri: imageSource }}
@@ -76,18 +76,23 @@ export function ProductCard({ product, index = 0, onPress }: ProductCardProps) {
                 transition={150}
               />
             ) : (
-              <ThemedView type="surfaceElevated" style={styles.imagePlaceholder}>
+              <View style={styles.imagePlaceholder}>
                 <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
-                <ThemedText type="caption" themeColor="textMuted" style={styles.placeholderText}>
+                <ThemedText
+                  type="caption"
+                  themeColor="logoPlateForeground"
+                  style={styles.placeholderText}>
                   {t('products.noImage')}
                 </ThemedText>
-              </ThemedView>
+              </View>
             )}
             <View style={styles.freshnessOverlay} pointerEvents="none">
               <FreshnessIndicator updatedAt={product.updatedAt} />
             </View>
             {agencyLogoSource && (
-              <View style={styles.agencyOverlay} pointerEvents="none">
+              <View
+                style={[styles.agencyOverlay, { backgroundColor: theme.logoPlate }]}
+                pointerEvents="none">
                 <Image
                   source={{ uri: agencyLogoSource }}
                   style={styles.agencyLogo}
@@ -135,7 +140,6 @@ const styles = StyleSheet.create({
   imageContainer: {
     aspectRatio: 1,
     width: '100%',
-    backgroundColor: 'transparent',
     position: 'relative',
   },
   image: {
@@ -179,7 +183,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: Spacing.two,
     right: Spacing.two,
-    backgroundColor: 'rgb(255, 255, 255)',
     padding: Spacing.one,
     borderRadius: Radius.md,
     shadowColor: '#000',

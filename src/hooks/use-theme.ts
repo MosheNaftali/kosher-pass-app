@@ -3,7 +3,7 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
-import { Colors } from '@/constants/theme';
+import { Colors, TintAlpha } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export function useTheme() {
@@ -11,4 +11,9 @@ export function useTheme() {
   const theme = scheme === 'unspecified' ? 'light' : scheme;
 
   return Colors[theme];
+}
+
+/** Alpha suffix for a translucent fill, tuned for the active color scheme. */
+export function useTintAlpha() {
+  return useColorScheme() === 'dark' ? TintAlpha.dark : TintAlpha.light;
 }

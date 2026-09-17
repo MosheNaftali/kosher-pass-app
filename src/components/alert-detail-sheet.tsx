@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Shadows, Spacing, type ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme, useTintAlpha } from '@/hooks/use-theme';
 import { alertSourceLink, type AlertSeverity, type FeedAlert } from '@/utils/alerts';
 
 const SEVERITY_COLOR: Record<AlertSeverity, ThemeColor> = {
@@ -54,6 +54,7 @@ export function AlertDetailSheet({
   onOpenSource,
 }: AlertDetailSheetProps) {
   const theme = useTheme();
+  const tintAlpha = useTintAlpha();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
@@ -122,7 +123,7 @@ export function AlertDetailSheet({
                 {alert.imageUrl && <AlertImage key={alert.imageUrl} uri={alert.imageUrl} />}
 
                 <View style={styles.badgeRow}>
-                  <View style={[styles.severityBadge, { backgroundColor: `${theme[colorKey]}1A` }]}>
+                  <View style={[styles.severityBadge, { backgroundColor: `${theme[colorKey]}${tintAlpha}` }]}>
                     <Icon
                       name={SEVERITY_ICON[alert.severity]}
                       tintColor={theme[colorKey]}

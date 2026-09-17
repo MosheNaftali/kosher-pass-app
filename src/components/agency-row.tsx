@@ -1,6 +1,6 @@
 import { Icon } from '@/components/ui/icon';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from './themed-text';
@@ -38,22 +38,22 @@ export function AgencyRow({
       accessibilityRole="button"
       accessibilityLabel={t('common.a11y.viewAgency', { name: agency.name })}>
       <ThemedView type="surface" style={styles.container}>
-        {logoSource ? (
-          <Image
-            source={{ uri: logoSource }}
-            style={styles.logo}
-            contentFit="contain"
-            recyclingKey={agency.id}
-          />
-        ) : (
-          <ThemedView type="surfaceElevated" style={styles.logoPlaceholder}>
+        <View style={[styles.logoPlate, { backgroundColor: theme.logoPlate }]}>
+          {logoSource ? (
+            <Image
+              source={{ uri: logoSource }}
+              style={styles.logo}
+              contentFit="contain"
+              recyclingKey={agency.id}
+            />
+          ) : (
             <Icon
               name={{ ios: 'building.2.fill', web: 'apartment' }}
-              tintColor={theme.textMuted}
+              tintColor={theme.logoPlateForeground}
               size={24}
             />
-          </ThemedView>
-        )}
+          )}
+        </View>
 
         <ThemedView style={styles.content}>
           <ThemedText type="bodyBold" numberOfLines={1}>
@@ -78,7 +78,7 @@ export function AgencyRow({
             )}>
             <Icon
               name={isFavorite ? 'star.fill' : 'star'}
-              tintColor={isFavorite ? theme.accent : theme.border}
+              tintColor={isFavorite ? theme.accent : theme.textMuted}
               size={22}
             />
           </Pressable>
@@ -97,17 +97,17 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     ...Shadows.sm,
   },
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.md,
-  },
-  logoPlaceholder: {
+  logoPlate: {
     width: 48,
     height: 48,
     borderRadius: Radius.md,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
   },
   content: {
     flex: 1,

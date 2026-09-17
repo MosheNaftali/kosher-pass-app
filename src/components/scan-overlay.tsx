@@ -51,7 +51,7 @@ export function ScanOverlay({ scanning = true }: ScanOverlayProps) {
         )}
       </View>
 
-      <ThemedText type="bodyMedium" themeColor="textInverse" style={styles.hint}>
+      <ThemedText type="bodyMedium" themeColor="overlayForeground" style={styles.hint}>
         {t('scan.positionBarcode')}
       </ThemedText>
     </View>

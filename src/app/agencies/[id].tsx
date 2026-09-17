@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { BackButton } from '@/components/back-button';
 import { CertificateBadge } from '@/components/certificate-badge';
 import { EmptyState } from '@/components/empty-state';
 import { ProductCard } from '@/components/product-card';
@@ -110,13 +111,13 @@ export default function AgencyDetailScreen() {
   const listHeader = (
     <View>
       <ThemedView type="surface" style={styles.headerCard}>
-        {logoSource ? (
-          <Image source={{ uri: logoSource }} style={styles.logo} contentFit="contain" />
-        ) : (
-          <ThemedView type="surfaceElevated" style={styles.logoPlaceholder}>
-            <Icon name="building.2.fill" tintColor={theme.textMuted} size={40} />
-          </ThemedView>
-        )}
+        <View style={[styles.logoPlate, { backgroundColor: theme.logoPlate }]}>
+          {logoSource ? (
+            <Image source={{ uri: logoSource }} style={styles.logo} contentFit="contain" />
+          ) : (
+            <Icon name="building.2.fill" tintColor={theme.logoPlateForeground} size={40} />
+          )}
+        </View>
 
         <View style={styles.titleSection}>
           <ThemedText type="h2">{agency.name}</ThemedText>
@@ -202,13 +203,7 @@ export default function AgencyDetailScreen() {
 
   return (
     <ThemedView style={[styles.container, { paddingTop: contentTopInset }]}>
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel={t('common.a11y.goBack')}
-        style={styles.backButton}>
-        <Icon name="chevron.left" tintColor={theme.text} size={28} weight="semibold" />
-      </Pressable>
+      <BackButton onPress={() => router.back()} />
 
       <FlatList
         data={products}
@@ -275,15 +270,6 @@ const styles = StyleSheet.create({
   loader: {
     flex: 1,
   },
-  backButton: {
-    position: 'absolute',
-    top: 16,
-    left: Spacing.four,
-    zIndex: 10,
-    padding: Spacing.two,
-    borderRadius: Radius.round,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  },
   headerCard: {
     marginTop: Spacing.four,
     borderRadius: Radius.xl,
@@ -292,17 +278,17 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     ...Shadows.md,
   },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: Radius.lg,
-  },
-  logoPlaceholder: {
+  logoPlate: {
     width: 80,
     height: 80,
     borderRadius: Radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
   },
   titleSection: {
     alignItems: 'center',

@@ -6,7 +6,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Radius, Spacing, type ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme, useTintAlpha } from '@/hooks/use-theme';
 import { getDaysSince, getFreshnessTier } from '@/utils/freshness';
 
 interface FreshnessAlertProps {
@@ -27,6 +27,7 @@ const tierIcon = {
 
 export function FreshnessAlert({ updatedAt }: FreshnessAlertProps) {
   const theme = useTheme();
+  const tintAlpha = useTintAlpha();
   const { t } = useTranslation();
 
   const tier = getFreshnessTier(updatedAt);
@@ -47,7 +48,7 @@ export function FreshnessAlert({ updatedAt }: FreshnessAlertProps) {
     <ThemedView
       style={[
         styles.banner,
-        { backgroundColor: `${theme[colorKey]}14`, borderColor: `${theme[colorKey]}55` },
+        { backgroundColor: `${theme[colorKey]}${tintAlpha}`, borderColor: `${theme[colorKey]}55` },
       ]}>
       <View style={styles.iconWrap}>
         <Icon

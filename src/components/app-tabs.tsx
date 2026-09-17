@@ -26,8 +26,7 @@ interface TabKey {
 
 // Discover is hidden for the time being - its search and featured products
 // overlap with the Products catalogue. Flip this to `true` to restore the tab;
-// the screen itself still lives at `src/app/discover.tsx`, and
-// `src/app/index.tsx` redirects to the first tab while it is off.
+// the screen itself still lives at `src/app/discover.tsx`.
 //
 // Note when restoring it: the elevated Scan button only sits in the middle of
 // the bar when the same number of tabs flanks it. The bar currently renders
@@ -50,11 +49,11 @@ function useTabConfig() {
         } as TabKey,
       ]
       : []),
-    { name: 'alerts', href: '/alerts', translationKey: 'tabs.alerts', icon: 'bell' },
+    // { name: 'alerts', href: '/alerts', translationKey: 'tabs.alerts', icon: 'bell' },
     { name: 'products', href: '/products', translationKey: 'tabs.products', icon: 'cube.box' },
     // { name: 'scan', href: '/scan', translationKey: 'tabs.scan', icon: 'barcode.viewfinder', isScan: true },
-    { name: 'my-list', href: '/my-list', translationKey: 'tabs.myList', icon: 'cart' },
     { name: 'agencies', href: '/agencies', translationKey: 'tabs.agencies', icon: 'building.2' },
+    { name: 'my-list', href: '/my-list', translationKey: 'tabs.myList', icon: 'cart' },
     { name: 'about', href: '/about', translationKey: 'tabs.about', icon: 'info.circle' },
   ];
 
@@ -70,6 +69,10 @@ export default function AppTabs() {
   // rather than assumed; until the first measurement lands, the reserved
   // minimum stands in.
   const [adHeight, setAdHeight] = useState(insets.top + Layout.adBannerHeight);
+  // The tab bar sizes itself from its content plus the safe area, so its height
+  // is measured rather than assumed; until the first measurement lands the
+  // estimate stands in.
+  const [tabBarHeight, setTabBarHeight] = useState(Layout.tabBarHeight);
   // The camera UI on /scan owns the full screen - no ad banner there.
   // `isAdBannerAvailable` is resolved from build-time config, so a build with
   // AdMob unconfigured never reserves the slot at all (see .env.example).
@@ -81,13 +84,17 @@ export default function AppTabs() {
   const contentTop = showAdBanner ? adHeight : insets.top;
 
   return (
-    <TopInsetProvider contentTopInset={contentTopInset} contentTop={contentTop}>
+    <TopInsetProvider
+      contentTopInset={contentTopInset}
+      contentTop={contentTop}
+      tabBarHeight={tabBarHeight}>
       <View style={[styles.root, { backgroundColor: theme.background }]}>
         {showAdBanner ? <AdBanner onHeightChange={setAdHeight} /> : null}
         <View style={styles.body}>
           <Tabs>
             <TabSlot />
             <TabList
+              onLayout={event => setTabBarHeight(event.nativeEvent.layout.height)}
               style={[
                 styles.tabList,
                 { backgroundColor: theme.surface, borderTopColor: theme.borderSubtle },
@@ -209,7 +216,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingVertical: Spacing.two,
   },
   tabButton: {
     flex: 1,

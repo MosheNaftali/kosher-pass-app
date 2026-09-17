@@ -212,15 +212,20 @@ function TabButton({ label, active, onPress, badge }: TabButtonProps) {
       accessibilityLabel={label}>
       <ThemedView
         type={active ? 'surfaceContrast' : 'surface'}
-        style={[styles.tabButtonInner, active && { backgroundColor: theme.surfaceContrast }]}>
-        <ThemedText type="smallMedium" themeColor={active ? 'textInverse' : 'textSecondary'}>
+        style={[
+          styles.tabButtonInner,
+          { borderColor: active ? theme.surfaceContrast : theme.border },
+        ]}>
+        <ThemedText
+          type="smallMedium"
+          themeColor={active ? 'surfaceContrastForeground' : 'textSecondary'}>
           {label}
         </ThemedText>
         {badge > 0 && (
           <ThemedView
             type={active ? 'accent' : 'surfaceElevated'}
             style={styles.badge}>
-            <ThemedText type="caption" themeColor={active ? 'primaryForeground' : 'text'}>
+            <ThemedText type="caption" themeColor={active ? 'accentForeground' : 'text'}>
               {badge}
             </ThemedText>
           </ThemedView>
@@ -265,7 +270,7 @@ function ShoppingListRow({
         )}>
         <Icon
           name={item.purchased ? 'checkmark.circle.fill' : 'circle'}
-          tintColor={item.purchased ? theme.success : theme.border}
+          tintColor={item.purchased ? theme.success : theme.textMuted}
           size={24}
         />
       </Pressable>
@@ -278,7 +283,7 @@ function ShoppingListRow({
         {imageSource ? (
           <Image source={{ uri: imageSource }} style={styles.productImage} contentFit="contain" />
         ) : (
-          <ThemedView type="surfaceElevated" style={styles.productImagePlaceholder}>
+          <ThemedView type="logoPlate" style={styles.productImagePlaceholder}>
             <Image source={LogoImage} style={styles.placeholderLogo} contentFit="contain" />
           </ThemedView>
         )}
@@ -340,6 +345,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.three,
     borderRadius: Radius.round,
+    borderWidth: 1,
   },
   badge: {
     minWidth: 20,

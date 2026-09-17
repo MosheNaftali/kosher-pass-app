@@ -16,12 +16,14 @@ import { initNetworkBridge } from '@/services/network';
 import { persistOptions, queryClient } from '@/services/query-client';
 import { initTelemetry } from '@/services/telemetry';
 
-// Pins the navigator's initial screen to Alerts. Without it the headless tabs
+// Pins the navigator's initial screen to Products. Without it the headless tabs
 // fall back to the shortest route name, which is `about`.
 //
-// The anchor must be the route node's name, and a directory's `index.tsx` keeps
-// its `/index` suffix there - hence `alerts/index`, not `alerts`.
-export const unstable_settings = { anchor: 'alerts/index' };
+// The anchor must be the route node's name in *this* navigator. A directory with
+// its own `_layout.tsx` is a single route named after the directory (`products`),
+// while a layout-less directory keeps the `/index` suffix on its index route
+// (`alerts/index`).
+export const unstable_settings = { anchor: 'products' };
 
 // Held until the saved locale has been restored, so the app never renders its
 // first frame in the device language and then visibly switches.

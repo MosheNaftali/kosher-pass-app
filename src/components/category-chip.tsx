@@ -46,7 +46,7 @@ export function CategoryChip({ label, selected, onPress }: CategoryChipProps) {
         ]}>
         <ThemedText
           type="smallMedium"
-          themeColor={selected ? 'primaryForeground' : 'text'}>
+          themeColor={selected ? 'accentForeground' : 'text'}>
           {label}
         </ThemedText>
       </Animated.View>

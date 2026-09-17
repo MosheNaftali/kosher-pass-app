@@ -85,11 +85,11 @@ app/
 │   └── reset-project.js            # Bootstrap fresh project state
 └── src/
     ├── app/                        # File-based routes (Expo Router)
-    │   ├── _layout.tsx             # Root layout — ThemeProvider + SavedItemsProvider + AppTabs; `anchor: 'alerts/index'` sets the landing tab
-    │   ├── index.tsx               # Fallback route (/) - redirects to /alerts; the landing tab comes from the anchor, not this file
+    │   ├── _layout.tsx             # Root layout — ThemeProvider + SavedItemsProvider + AppTabs; `anchor: 'products'` sets the landing tab
+    │   ├── index.tsx               # Entry route for `/` - redirects to /products; the landing tab comes from the anchor, not this file
     │   ├── discover.tsx            # Discover / Home screen (route: /discover) - tab hidden, see DISCOVER_ENABLED
     │   ├── alerts/
-    │   │   └── index.tsx           # Alerts tab (route: /alerts) - landing screen
+    │   │   └── index.tsx           # Alerts tab (route: /alerts) - notices from followed agencies
     │   ├── about.tsx               # About tab (route: /about) - app info + developer contact
     │   ├── scan.tsx                # Barcode scanner (route: /scan)
     │   ├── my-list.tsx             # Shopping list + favorite agencies (route: /my-list)
@@ -109,6 +109,7 @@ app/
     │   ├── ad-banner.tsx           # Full-width AdMob banner anchored at the TOP of the app (native); hidden on /scan
     │   ├── ad-banner.web.tsx       # Web stub for AdBanner (renders nothing)
     │   ├── external-link.tsx       # Link that opens in in-app browser on native
+    │   ├── back-button.tsx         # Floating scrim back affordance for pushed screens
     │   ├── themed-text.tsx         # Theme-aware typography component
     │   ├── themed-view.tsx         # Theme-aware container component
     │   ├── product-card.tsx        # Product grid/list card
@@ -404,6 +405,34 @@ enum Status { Idle, Loading, Success, Error }
 
 ## Design System & Theming
 
+### Visual language — avoid AI-default UI
+
+The UI must read as a designed product, not as a generated one. The generic "AI"
+look is a recognizable set of tics: a rounded pill with a tinted fill, a hairline
+border and a leading icon wrapped around a single line of text; a badge for every
+value; gradient text; sparkle glyphs; a card nested in a card. Resist it.
+
+- **No container for a single fact.** A status, count or timestamp that fits on one
+  line is text, not a pill. Do not wrap it in a rounded, tinted, bordered chip with
+  an icon. A small colored dot is the most decoration a plain status line should
+  carry - see `FreshnessIndicatorDetailed`.
+- **An icon must add information.** No decorative glyphs next to labels, no
+  checklist-style icons on every row. If the text already says it, the icon is noise.
+- **Prefer hierarchy over boxes.** Establish emphasis with size, weight and color
+  (`Typography`, `text`/`textSecondary`/`textMuted`) before reaching for a border, a
+  fill or a shadow.
+- **Do not state one fact twice.** A date and a "N days ago" pill, a heading and a
+  badge that restates it - pick the one that carries the meaning.
+- **Corners are earned.** Only genuinely pill-shaped controls (chips, the CTA
+  button, the tab bar) use `Radius.round`; cards use `Radius.lg`/`xl`. Not everything
+  is a rounded rectangle.
+- **Motion is a hint, not a performance.** Fades and short slides only - no bouncing
+  entrances, no spring overshoot on full-height surfaces.
+- **No gradients, glows or "magic" affordances** (sparkles, shine sweeps, animated
+  gradients) anywhere in the app.
+- Extend an existing pattern (`KashrutBadge`, `CertificateBadge`, `FreshnessAlert`,
+  metatype rows) when a new element is needed, instead of inventing a new badge shape.
+
 ### Single source of truth: `src/constants/theme.ts`
 
 All design tokens live here:
@@ -417,7 +446,7 @@ All design tokens live here:
 | `Spacing` | Numeric spacing scale (half through ten) |
 | `Radius` | Border radius tokens |
 | `Shadows` | Elevation shadow styles |
-| `Layout.tabBarHeight` | Bottom padding screens must reserve to clear the floating tab bar |
+| `Layout.tabBarHeight` | *Estimate* of the floating tab bar's height, used before the first layout pass; screens dock to the measured `useTopInset().tabBarHeight` at runtime |
 | `AdBannerHeight` | *Minimum* height reserved for the top AdMob banner (50 native, 0 web); the adaptive banner's real height is measured at runtime |
 | `MaxContentWidth` | Max width for content (800px) |
 
@@ -442,13 +471,18 @@ export const Colors = {
     border: '#E5E0D8',
     borderSubtle: '#F0EDE7',
     success: '#2D6A4F',
-    warning: '#B46A18',
+    warning: '#A85F12',
+    warningForeground: '#FFFFFF',
     error: '#B91C1C',
     dairy: '#4A7CB5',
     meat: '#B55A4A',
     pareve: '#2D6A4F',
     chalavYisrael: '#5B4AB5',
     unknown: '#9CA3AF',
+    overlay: 'rgba(0, 0, 0, 0.55)',
+    overlayForeground: '#FFFFFF',
+    logoPlate: '#FFFFFF',
+    logoPlateForeground: '#6B7280',
   },
   dark: { /* mirrored keys with dark values */ },
 } as const;
@@ -457,6 +491,24 @@ export const Colors = {
 - Every color key **must exist in both** `light` and `dark`.
 - `as const` ensures the values are read-only and enables `ThemeColor` type inference.
 - Use `ThemeColor` as the prop type when a component accepts a color key from the theme.
+- **A fill that carries text carries its own `…Foreground` token.** `primary`/`primaryForeground`,
+  `accent`/`accentForeground`, `warning`/`warningForeground`,
+  `surfaceContrast`/`surfaceContrastForeground`. Never paint a fill in one token and its label in
+  another (`textInverse` in particular flips to near-black in dark mode and disappears on dark
+  fills) - that is what made the active My List tab unreadable.
+- `overlay` / `overlayForeground` are a scheme-independent scrim pair for anything that floats over
+  arbitrary content (the back button, the scan hint). Because the scrim is always dark, its
+  foreground is always light.
+- `logoPlate` / `logoPlateForeground` are a fixed light tile for logos and product imagery. Agency
+  and product artwork is designed for light backgrounds, so it is placed on a light plate in **both**
+  schemes rather than on `surface`, which is why dark/transparent logos used to vanish.
+- **Translucent fills go through `useTintAlpha()`**, never a hardcoded alpha suffix. A tint that
+  reads on a light surface is invisible on a dark one, so `` `${theme[color]}${useTintAlpha()}` ``
+  resolves to `15` in light and `2A` in dark.
+- `warning` is intentionally dark enough (light `#A85F12`) that it clears AA both as text on a light
+  surface and as a fill under `warningForeground`; the same is true of the raised dark text/verdict
+  tones (`textMuted`, `success`/`pareve`, `chalavYisrael`). `src/constants/theme.test.ts` pins every
+  one of these ratios, so a new token must be chosen to satisfy it.
 
 ### How to add a new color
 
@@ -695,8 +747,8 @@ const { locale, setLocale } = useLocale();
 - Wraps everything in `ThemeProvider` (from `expo-router`, with `DarkTheme`/`DefaultTheme`).
 - Wraps everything in `SavedItemsProvider` for favorites and shopping list state.
 - Renders `AppTabs` (custom tab navigator): Alerts (`/alerts`), Products (`/products`), My List (`/my-list`), Agencies (`/agencies`), About (`/about`). Scan (`/scan`) and Discover (`/discover`) are currently hidden - see "Hidden tabs" below.
-- Exports `unstable_settings = { anchor: 'alerts/index' }` so the headless tab navigator lands on
-  Alerts instead of the shortest route name. See "Headless tabs register *only* the routes a
+- Exports `unstable_settings = { anchor: 'products' }` so the headless tab navigator lands on
+  Products instead of the shortest route name. See "Headless tabs register *only* the routes a
   `TabTrigger` points at" below before changing the tab set.
 - `SafeAreaView` handles the **horizontal edges only**. The top edge belongs to `AppTabs`, which
   either gives it to the ad banner or hands it to screens through `useTopInset()` - see the ads
@@ -762,36 +814,40 @@ inline in `tabKeys` (its route, `src/app/scan.tsx`, is untouched).
 - `DISCOVER_ENABLED = false` drops its entry from `tabKeys`.
 - The screen itself lives at `src/app/discover.tsx` (route `/discover`), reachable by URL but not
   linked from anywhere.
-- `src/app/index.tsx` is a `<Redirect href="/alerts" />` kept as a fallback for the `/` URL.
-  **It does not run on launch** - see the anchor note below - it only matters if something
-  navigates to `/` while the app is already running.
+- `src/app/index.tsx` is a `<Redirect href="/products" />` and is **required**: a cold start and a
+  bare `kosherpass://` deep link both resolve to the `/` URL, and `/` is not a screen the headless
+  tab navigator registers. Delete it and the app opens on Expo Router's "Unmatched Route" screen.
+  It does not decide the landing *tab* - the anchor in `_layout.tsx` does.
 
 #### Headless tabs register *only* the routes a `TabTrigger` points at
 
 `AppTabs` uses Expo Router's **headless** `Tabs`, and its `TabList` is the navigator's entire
 screen list. Routes with no trigger - `index`, `discover`, `scan` - are **not** registered as
-screens, so an `index.tsx` that returns `<Redirect />` never renders on launch and the navigator
-falls back to its default initial screen.
+screens, so an `index.tsx` that returns `<Redirect />` never renders as a *tab*; it exists only to
+answer the `/` URL that a cold start or a bare deep link resolves to.
 
 That default is the first screen after `sortRoutes`, which sorts non-dynamic routes by **name
 length**. With no anchor the five tabs are ordered `about` (5) < `alerts` (6) < `my-list` (7) <
 `products`/`agencies` (8), so About became the landing screen the moment it was added.
 
-`src/app/_layout.tsx` therefore exports `unstable_settings = { anchor: 'alerts/index' }`. `anchor`
+`src/app/_layout.tsx` therefore exports `unstable_settings = { anchor: 'products' }`. `anchor`
 pins both the navigator's `initialRouteName` and the first position in the sorted screen list, so
-Alerts is the landing screen and the fallback when `/` resolves to no screen. **Any change to the
-landing tab must update the anchor** - reordering `tabKeys` is not enough.
+Products is the landing screen. The `/` URL itself is answered separately by `src/app/index.tsx`,
+which redirects to `/products` - the anchor does **not** cover it. **Any change to the landing tab
+must update the anchor** - reordering `tabKeys` is not enough.
 
-The anchor is matched against the route node's `route`, and a directory's `index.tsx` keeps its
-`/index` suffix there (`alerts/index.tsx` -> `alerts/index`, while a flat `about.tsx` -> `about`).
-An anchor that does not match exactly fails at startup with `Couldn't find a screen named ...
-to use as 'initialRouteName'`. When in doubt, log the route tree or check the valid-options list in
-the `invalid anchor` error, which enumerates every accepted name.
+The anchor is matched against the route node's name **in the tab navigator itself**, so the exact
+string depends on the route's shape. A directory that owns a `_layout.tsx` collapses to a single
+route named after the directory (`products/_layout.tsx` -> `products`), while a directory with no
+layout of its own keeps the `/index` suffix on its index route (`alerts/index.tsx` -> `alerts/index`,
+a flat `about.tsx` -> `about`). An anchor that does not match exactly fails at startup with
+`Couldn't find a screen named ... to use as 'initialRouteName'`. When in doubt, log the route tree or
+check the valid-options list in the `invalid anchor` error, which enumerates every accepted name.
 
 To restore Discover: flip the flag to `true`, delete `src/app/index.tsx`, rename `discover.tsx` back
-to `index.tsx`, point the tab's `href` back at `/`, and update the anchor in `_layout.tsx` if
-Discover should land first. Both restorations bring the bar to six entries - see "Keep the visible
-entry count odd" above.
+to `index.tsx`, point the tab's `href` at `/`, and update the anchor in `_layout.tsx` if Discover
+should land first. Both restorations bring the bar to six entries - see "Keep the visible entry
+count odd" above.
 
 ---
 
@@ -1039,6 +1095,27 @@ const styles = StyleSheet.create({
 - **Colocate styles** at the bottom of the file via `StyleSheet.create`.
 - **Extract reusable subcomponents** when a single file exceeds ~200 lines or when the subcomponent is reused elsewhere.
 
+### Pattern: floating back button (`BackButton`) — scrim, not surface
+
+Pushed screens (`products/[id]`, `agencies/[id]`) float a back affordance over whatever content occupies
+the top of the screen. Never style it as a themed surface: a `surface` pill over a `surfaceElevated`
+image is 1.2:1, and a hardcoded light pill leaves a white blob in dark mode with a near-white glyph on
+it (the two screens had drifted to opposite bugs). Use **`BackButton`** from
+`src/components/back-button.tsx`, which paints `theme.overlay` under `theme.overlayForeground` - a
+scheme-independent scrim, legible over a photo in either scheme - and positions itself from
+`useTopInset().contentTopInset` so it clears the ad banner. Callers pass only `onPress`.
+
+### Pattern: logo and product-image plates
+
+Agency logos and product photos are authored against light backgrounds, so rendering them straight on
+`surface` makes them disappear - dark/transparent artwork on the dark surface, light artwork on the
+light one. Every such asset therefore sits on a **fixed light plate** (`theme.logoPlate`, white in both
+schemes) with `overflow: 'hidden'`, and any placeholder glyph or caption on that plate uses
+`theme.logoPlateForeground` (not `textMuted`, which is near-white in dark mode and vanishes on a white
+plate). Applies to `agency-row.tsx`, both detail screens, and `product-card.tsx`. The plate is also
+what the product grid/tile reserves behind an image, which is why the image container is `logoPlate`
+rather than `surfaceElevated`.
+
 ### Pattern: Freshness indicator (last-updated warnings)
 
 Products expose an `updatedAt` ISO string. The longer a product goes without an update, the more cautious a customer should be about trusting it. The freshness system turns that staleness into a visible, color-coded signal across the product list and the detail screen.
@@ -1064,7 +1141,7 @@ Products expose an `updatedAt` ISO string. The longer a product goes without an 
 **Components** in `src/components/`:
 
 - `FreshnessIndicator` (compact) — small circular glyph, top-right overlay on the `ProductCard` image. Returns `null` when tier is `fresh`.
-- `FreshnessIndicatorDetailed` — inline pill with icon + "Updated N days ago" label, used in the detail screen's "Last updated" row. Always renders (even when `fresh`).
+- `FreshnessIndicatorDetailed` — an understated status line (a small tier-colored dot plus plain caption text), used in the detail screen's "Last updated" row. It is deliberately **not** a pill or badge - see "Visual language — avoid AI-default UI". Always renders (even when `fresh`).
 - `FreshnessAlert` — banner rendered at the top of the product detail's info card. Returns `null` unless tier is `stale` or `outdated`. Uses `theme.warning` / `theme.error` tinted backgrounds.
 
 **Card treatment:** The `ProductCard` wraps the image in a `View` with `position: 'relative'`, places the compact indicator absolutely at `top: Spacing.two, right: Spacing.two`, and for the `outdated` tier applies a 1.5px border in `theme.error`.
@@ -1072,7 +1149,8 @@ Products expose an `updatedAt` ISO string. The longer a product goes without an 
 **i18n:** All labels and copy live under `common.freshness.*`:
 
 - `lastUpdated` — label for the detail screen row
-- `lastUpdatedDaysAgo` — interpolation `{{days}}` used by the detailed indicator
+- `lastUpdatedDaysAgo` — interpolation `{{days}}` used by the detailed indicator for 2+ days
+- `updatedToday` / `lastUpdatedOneDayAgo` — singular copy so the line never reads "0 days ago"
 - `fresh` / `aging` / `stale` / `outdated` — short tier labels
 - `staleAlertTitle` / `staleAlertBody` — banner copy (title interpolates `{{days}}`)
 - `outdatedAlertTitle` / `outdatedAlertBody` — banner copy (title interpolates `{{days}}`)
@@ -1507,6 +1585,7 @@ before any change is considered done.
 | URL scheme guards | `src/services/api.test.ts` |
 | Route-template cardinality guard | `src/services/telemetry/events.test.ts` |
 | Cross-platform icon-name resolution (SF -> Material) | `src/constants/icons.test.ts` |
+| Palette contrast ratios (AA) and light/dark key parity | `src/constants/theme.test.ts` |
 | Persisted shopping list validation | `src/hooks/use-saved-items.test.tsx` |
 | Root error boundary catch/report/retry | `src/components/app-error-boundary.test.tsx` |
 | `ExternalLink` child style resolution through `Link asChild` | `src/components/external-link.test.tsx` |

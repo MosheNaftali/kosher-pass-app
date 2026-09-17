@@ -1,13 +1,12 @@
 import { Redirect } from 'expo-router';
 
 /**
- * The Discover tab is hidden for now (see `DISCOVER_ENABLED` in
- * `src/components/app-tabs.tsx`), so the app's entry route hands off to Alerts -
- * the first tab - instead of rendering a screen with no tab behind it.
- *
- * To bring Discover back: flip `DISCOVER_ENABLED` to `true` and delete this
- * file, renaming `src/app/discover.tsx` back to `src/app/index.tsx`.
+ * The entry route for the bare `/` URL. The headless tab navigator registers
+ * only the routes its `TabTrigger`s point at, and `/` is not one of them, so
+ * without a route here a cold start (or a bare `kosherpass://` deep link)
+ * lands on Expo Router's "Unmatched Route" screen. It hands off to the landing
+ * tab; the initial screen itself is pinned by the anchor in `_layout.tsx`.
  */
 export default function Index() {
-  return <Redirect href="/alerts" />;
+  return <Redirect href="/products" />;
 }

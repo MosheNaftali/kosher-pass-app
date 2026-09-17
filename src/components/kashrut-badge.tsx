@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { ThemedText } from './themed-text';
 import { ThemedView, type ThemedViewProps } from './themed-view';
 
-import { Colors, KashrutLevelColors, type KashrutLevel, Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { KashrutLevelColors, type KashrutLevel, Radius, Spacing } from '@/constants/theme';
+import { useTheme, useTintAlpha } from '@/hooks/use-theme';
 
 interface KashrutBadgeProps extends ThemedViewProps {
   level: KashrutLevel;
@@ -23,15 +23,16 @@ const kashrutTranslationKeys: Record<KashrutLevel, string> = {
 
 export function KashrutBadge({ level, size = 'md', showMehadrin, style, ...rest }: KashrutBadgeProps) {
   const theme = useTheme();
+  const tintAlpha = useTintAlpha();
   const { t } = useTranslation();
   const colorKey = KashrutLevelColors[level];
-  const color = Colors.light[colorKey] ?? theme[colorKey];
+  const color = theme[colorKey];
 
   return (
     <ThemedView
       style={[
         styles.badge,
-        { backgroundColor: `${color}15`, borderColor: `${color}40` },
+        { backgroundColor: `${color}${tintAlpha}`, borderColor: `${color}40` },
         size === 'sm' && styles.badgeSmall,
         showMehadrin && styles.badgeWithMehadrin,
         style,

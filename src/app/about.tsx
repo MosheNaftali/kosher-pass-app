@@ -15,7 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_VERSION, Config } from '@/constants/config';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme, useTintAlpha } from '@/hooks/use-theme';
 import { useTopInset } from '@/hooks/use-top-inset';
 import { isSafeExternalUrl } from '@/services/api';
 
@@ -32,6 +32,7 @@ const CONTACT_ICON_SIZE = 20;
 
 export default function AboutScreen() {
   const theme = useTheme();
+  const tintAlpha = useTintAlpha();
   const { contentTopInset } = useTopInset();
   const { t } = useTranslation();
 
@@ -81,7 +82,7 @@ export default function AboutScreen() {
         <ThemedView
           style={[
             styles.disclaimer,
-            { backgroundColor: `${theme.warning}14`, borderColor: `${theme.warning}55` },
+            { backgroundColor: `${theme.warning}${tintAlpha}`, borderColor: `${theme.warning}55` },
           ]}>
           <Icon
             name="exclamationmark.triangle.fill"
