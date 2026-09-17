@@ -5,7 +5,7 @@ import { type SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AdBanner, isAdBannerAvailable } from './ad-banner';
@@ -127,11 +127,11 @@ function TabButton({
   const scale = useSharedValue(1);
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.9, { stiffness: 400, damping: 15 });
+    scale.value = withTiming(0.9, { duration: 60 });
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { stiffness: 400, damping: 15 });
+    scale.value = withTiming(1, { duration: 90 });
   };
 
   return (
