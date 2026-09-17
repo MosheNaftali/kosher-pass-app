@@ -69,7 +69,7 @@ export default function ProductsScreen() {
   const { t } = useTranslation();
 
   const [searchQuery, setSearchQuery] = useState(params.name ?? '');
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  const debouncedSearch = useDebounce(searchQuery, 400);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { selectedCountryIds, setSelectedCountryIds, isHydrated } = usePersistedCountryIds();
 
