@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '@/components/ui/icon';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -25,15 +25,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useTheme } from '@/hooks/use-theme';
-import { useTopInset } from '@/hooks/use-top-inset';
+import { usePersistedCountryIds } from '@/hooks/use-persisted-country-filter';
 import {
   flattenProductPages,
   useCountriesQuery,
   useProductsQuery,
 } from '@/hooks/use-queries';
-import { track } from '@/services/telemetry';
+import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import type { Product } from '@/services/products';
+import { track } from '@/services/telemetry';
 import {
   CONTINENT_TRANSLATION_KEYS,
   getCountryTranslationKey,
@@ -70,7 +71,7 @@ export default function ProductsScreen() {
   const [searchQuery, setSearchQuery] = useState(params.name ?? '');
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedCountryIds, setSelectedCountryIds] = useState<Set<number>>(new Set());
+  const { selectedCountryIds, setSelectedCountryIds, isHydrated } = usePersistedCountryIds();
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
@@ -86,7 +87,7 @@ export default function ProductsScreen() {
     countryId: selectedCountryIds.size > 0 ? [...selectedCountryIds].sort((a, b) => a - b) : undefined,
   };
 
-  const productsQuery = useProductsQuery(filters);
+  const productsQuery = useProductsQuery(filters, { enabled: isHydrated });
   const countriesQuery = useCountriesQuery();
 
   const products = flattenProductPages(productsQuery.data?.pages);
@@ -94,8 +95,10 @@ export default function ProductsScreen() {
   const totalResults = productsQuery.data?.pages[0]?.total ?? 0;
 
   // Cached pages are rendered while a refetch runs, so the skeleton only shows
-  // when there is genuinely nothing to display yet.
-  const showSkeleton = productsQuery.isPending;
+  // when there is genuinely nothing to display yet. The persisted country
+  // filter is held back until it has been read, so the first request is not
+  // sent unfiltered and then repeated with the stored selection.
+  const showSkeleton = productsQuery.isPending || !isHydrated;
   const error = productsQuery.isError && products.length === 0 ? productsQuery.error : null;
 
   // Sync the `name` route param into the search field when another screen
@@ -354,7 +357,7 @@ export default function ProductsScreen() {
               styles.sheet,
               {
                 backgroundColor: theme.surface,
-                paddingBottom: Spacing.four,
+                paddingBottom: insets.bottom,
               },
             ]}>
             <View style={styles.sheetHandle}>
@@ -399,6 +402,7 @@ export default function ProductsScreen() {
                         group={group}
                         selectedIds={pendingCountryIds}
                         onToggle={togglePendingCountry}
+                        forceExpanded={countrySearch.trim().length > 0}
                         t={t}
                         getCountryDisplayName={countryDisplayName}
                         accent={theme.accent}
@@ -428,7 +432,7 @@ export default function ProductsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('products.apply')}
                 style={[styles.footerButton, { backgroundColor: theme.accent }]}>
-                <ThemedText type="bodyMedium" themeColor="primaryForeground">
+                <ThemedText type="bodyMedium" themeColor="accentForeground">
                   {t('products.apply')}
                 </ThemedText>
               </Pressable>
@@ -553,6 +557,7 @@ interface ContinentRowProps {
   group: ContinentGroup;
   selectedIds: Set<number>;
   onToggle: (id: number) => void;
+  forceExpanded: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
   getCountryDisplayName: (country: CountryOption) => string;
   accent: string;
@@ -566,6 +571,7 @@ function ContinentRow({
   group,
   selectedIds,
   onToggle,
+  forceExpanded,
   t,
   getCountryDisplayName,
   accent,
@@ -577,7 +583,10 @@ function ContinentRow({
   const [open, setOpen] = useState(false);
   const selectedCount = group.countries.filter(c => selectedIds.has(c.id)).length;
   const continentName = t(CONTINENT_TRANSLATION_KEYS[group.continent]);
-  const continentLabel = t(open ? 'common.a11y.collapseSection' : 'common.a11y.expandSection', {
+  // While a search is active every group shown already has a match, so the
+  // row is held open to reveal it instead of making the user expand each one.
+  const isOpen = forceExpanded || open;
+  const continentLabel = t(isOpen ? 'common.a11y.collapseSection' : 'common.a11y.expandSection', {
     name: continentName,
   });
   const hasSelection = selectedCount > 0;
@@ -595,7 +604,7 @@ function ContinentRow({
       <Pressable
         onPress={() => setOpen(prev => !prev)}
         accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
+        accessibilityState={{ expanded: isOpen }}
         accessibilityLabel={continentLabel}
         style={({ pressed }) => [styles.continentHeader, pressed && { opacity: 0.7 }]}>
         <View style={styles.continentHeaderLeft}>
@@ -618,10 +627,10 @@ function ContinentRow({
           size={16}
           weight="semibold"
           tintColor={textMuted}
-          style={open ? styles.chevronOpen : styles.chevronClosed}
+          style={isOpen ? styles.chevronOpen : styles.chevronClosed}
         />
       </Pressable>
-      {open && (
+      {isOpen && (
         <View style={styles.chipWrap}>
           {group.countries.map(country => (
             <CategoryChip

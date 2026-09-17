@@ -139,6 +139,7 @@ app/
     │   ├── use-theme.ts            # Returns Colors object for current scheme
     │   ├── use-debounce.ts         # Debounced value hook
     │   ├── use-saved-items.tsx     # Favorites + shopping list context
+    │   ├── use-persisted-country-filter.ts # Product country filter, persisted to AsyncStorage
     │   ├── use-top-inset.tsx       # Where screen content starts (ad banner vs. safe area)
     │   └── use-screen-tracking.ts  # Auto screen_view + flush on background
     ├── i18n/                       # Internationalization
@@ -865,6 +866,7 @@ count odd" above.
 - **Co-locate state** as close to where it's consumed as possible. Lift state only when needed.
 - **Server state** (API responses) should live in the screen/component that fetches it unless shared across screens.
 - **Persistent local state** (favorites, shopping list) lives in `SavedItemsProvider` and is backed by `@react-native-async-storage/async-storage`.
+- **Persisted filter selections** use `usePersistedCountryIds()` (`src/hooks/use-persisted-country-filter.ts`), which validates the stored value with a type guard, exposes `isHydrated`, and only writes once hydrated. A screen must hold back its filtered query until `isHydrated` so the persisted selection lands in the first request rather than triggering an unfiltered fetch that is immediately repeated.
 
 ### API calls in `src/services/`
 
@@ -1587,6 +1589,7 @@ before any change is considered done.
 | Cross-platform icon-name resolution (SF -> Material) | `src/constants/icons.test.ts` |
 | Palette contrast ratios (AA) and light/dark key parity | `src/constants/theme.test.ts` |
 | Persisted shopping list validation | `src/hooks/use-saved-items.test.tsx` |
+| Persisted country filter validation + write-back | `src/hooks/use-persisted-country-filter.test.ts` |
 | Root error boundary catch/report/retry | `src/components/app-error-boundary.test.tsx` |
 | `ExternalLink` child style resolution through `Link asChild` | `src/components/external-link.test.tsx` |
 

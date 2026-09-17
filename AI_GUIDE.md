@@ -88,6 +88,7 @@ File-based routing via `expo-router`. Route path = file path.
 | `use-theme.ts` | Returns `Colors` object for current scheme. |
 | `use-debounce.ts` | Debounced value hook. |
 | `use-saved-items.tsx` | Favorites + shopping list context (backed by AsyncStorage). |
+| `use-persisted-country-filter.ts` | Product country filter, persisted to AsyncStorage. Exposes `usePersistedCountryIds()` + `isHydrated`. |
 
 ---
 

@@ -59,7 +59,7 @@ export default function TabLayout() {
         <I18nextProvider i18n={i18n}>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <SavedItemsProvider>
-              <SafeAreaView style={styles.safeArea}>
+              <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.safeArea}>
                 <ScreenTracker />
                 <AppTabs />
               </SafeAreaView>

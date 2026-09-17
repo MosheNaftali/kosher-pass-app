@@ -42,13 +42,24 @@ function nextPageParam(lastPage: { page: number; lastPage: number }): number | u
   return lastPage.page < lastPage.lastPage ? lastPage.page + 1 : undefined;
 }
 
-export function useProductsQuery(filters: ProductFilters) {
+/**
+ * The product catalogue, paginated.
+ *
+ * `options.enabled` lets a screen with a persisted filter hold the query back
+ * until the stored selection has been read, so the first request already
+ * carries it instead of firing unfiltered and being repeated immediately.
+ */
+export function useProductsQuery(
+  filters: ProductFilters,
+  options?: { enabled?: boolean },
+) {
   return useInfiniteQuery({
     queryKey: queryKeys.products(filters as Record<string, unknown>),
     queryFn: ({ pageParam, signal }) =>
       getProducts({ ...filters, page: pageParam }, { signal }),
     initialPageParam: 1,
     getNextPageParam: (lastPage: PaginatedProducts) => nextPageParam(lastPage),
+    enabled: options?.enabled ?? true,
   });
 }
 
