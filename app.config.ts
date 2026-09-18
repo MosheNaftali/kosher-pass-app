@@ -82,8 +82,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     predictiveBackGestureEnabled: false,
     package: 'com.kosherpass.app',
-    versionCode: 4,
-    icon: './assets/images/icon.png',
+    versionCode: 5,
+    icon: './assets/icons/android-icon-foreground.png',
     adaptiveIcon: {
       // Adaptive icons composite two 108dp layers and the launcher masks the
       // outer ring, so the logo must live in a *separate* foreground layer
@@ -91,8 +91,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // already centred on the flat colour) as `backgroundImage` made Android
       // scale it like a backdrop and crop it, which is why the launcher showed
       // a zoomed, clipped glyph.
-      foregroundImage: './assets/images/android-icon-foreground.png',
+      foregroundImage: './assets/icons/android-icon-foreground.png',
       backgroundColor: '#1E2D3D',
+      monochromeImage: './assets/icons/android-icon-monochrome.png',
     },
     blockedPermissions: [
       "android.permission.READ_EXTERNAL_STORAGE",
