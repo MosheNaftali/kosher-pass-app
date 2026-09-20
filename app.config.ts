@@ -69,7 +69,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Kosher Pass',
   slug: 'kosher-pass',
-  version: '1.0.2',
+  version: '1.0.3',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'kosherpass',
@@ -82,7 +82,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     predictiveBackGestureEnabled: false,
     package: 'com.kosherpass.app',
-    versionCode: 6,
+    versionCode: 7,
     icon: './assets/icons/android-icon-foreground.png',
     adaptiveIcon: {
       // Adaptive icons composite two 108dp layers and the launcher masks the

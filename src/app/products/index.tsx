@@ -11,9 +11,10 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, { Easing, FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChip } from '@/components/category-chip';
@@ -77,6 +78,19 @@ export default function ProductsScreen() {
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
   const [pendingCountryIds, setPendingCountryIds] = useState<Set<number>>(new Set());
   const [countrySearch, setCountrySearch] = useState('');
+  const [isClosing, setIsClosing] = useState(false);
+
+  const { height: screenHeight } = useWindowDimensions();
+  const sheetTranslateY = useSharedValue(screenHeight);
+  const backdropOpacity = useSharedValue(0);
+
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
 
   // Server state lives in React Query: it owns cancellation (a superseded
   // search aborts automatically), retry, background refetch and the persisted
@@ -140,20 +154,47 @@ export default function ProductsScreen() {
   }
 
   function openFilterSheet() {
+    if (isClosing) return;
     setPendingCategory(selectedCategory);
     setPendingCountryIds(new Set(selectedCountryIds));
     setCountrySearch('');
+    // eslint-disable-next-line react-hooks/immutability
+    sheetTranslateY.value = -screenHeight;
+    // eslint-disable-next-line react-hooks/immutability
+    backdropOpacity.value = 0;
     setFilterSheetOpen(true);
+    requestAnimationFrame(() => {
+      backdropOpacity.value = withTiming(1, { duration: 200 });
+      sheetTranslateY.value = withTiming(0, { duration: 280, easing: Easing.out(Easing.cubic) });
+    });
+  }
+
+  function closeFilterSheet() {
+    if (isClosing) return;
+    setIsClosing(true);
+    // eslint-disable-next-line react-hooks/immutability
+    backdropOpacity.value = withTiming(0, { duration: 200 });
+    // eslint-disable-next-line react-hooks/immutability
+    sheetTranslateY.value = withTiming(
+      screenHeight,
+      { duration: 220, easing: Easing.in(Easing.cubic) },
+      (finished) => {
+        if (finished) {
+          runOnJS(setFilterSheetOpen)(false);
+          runOnJS(setIsClosing)(false);
+        }
+      },
+    );
   }
 
   function applyFilters() {
     setSelectedCategory(pendingCategory);
     setSelectedCountryIds(pendingCountryIds);
-    setFilterSheetOpen(false);
     track('filter_applied', {
       countries_count: pendingCountryIds.size,
       has_category: pendingCategory !== null,
     });
+    closeFilterSheet();
   }
 
   function resetFilters() {
@@ -339,26 +380,23 @@ export default function ProductsScreen() {
         transparent
         animationType="none"
         statusBarTranslucent
-        onRequestClose={() => setFilterSheetOpen(false)}>
+        onRequestClose={closeFilterSheet}>
         <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(200)}
-          style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.5)' }, animatedBackdropStyle]}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => setFilterSheetOpen(false)}
+            onPress={closeFilterSheet}
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
           />
           <Animated.View
-            entering={SlideInDown.duration(280).easing(Easing.out(Easing.cubic))}
-            exiting={SlideOutDown.duration(220).easing(Easing.in(Easing.cubic))}
             style={[
               styles.sheet,
               {
                 backgroundColor: theme.surface,
                 paddingBottom: insets.bottom,
               },
+              animatedSheetStyle,
             ]}>
             <View style={styles.sheetHandle}>
               <View style={[styles.handleBar, { backgroundColor: theme.border }]} />
@@ -731,7 +769,7 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
-    maxHeight: '85%',
+    height: '50%',
     ...Shadows.lg,
   },
   sheetHandle: {
@@ -752,7 +790,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
   },
   sheetContent: {
-    flexGrow: 0,
+    flex: 1,
   },
   sheetContentInner: {
     paddingHorizontal: Spacing.four,
