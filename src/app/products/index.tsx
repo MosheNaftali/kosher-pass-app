@@ -728,9 +728,9 @@ const styles = StyleSheet.create({
   },
   activeChipsWrapper: {
     paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
   },
   activeChipsList: {
-    paddingTop: Spacing.three,
     gap: Spacing.two,
   },
   activeChip: {
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
   sheetFooter: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingVertical: Spacing.two,
     gap: Spacing.three,
   },
   footerButton: {
