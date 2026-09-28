@@ -2,6 +2,7 @@ import { Icon } from '@/components/ui/icon';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,28 +11,25 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/back-button';
-import { CertificateBadge } from '@/components/certificate-badge';
 import { EmptyState } from '@/components/empty-state';
+import { ExternalLink } from '@/components/external-link';
 import { ProductCard } from '@/components/product-card';
 import { SearchBar } from '@/components/search-bar';
 import { SkeletonCard } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { ExternalLink } from '@/components/external-link';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useSavedItems } from '@/hooks/use-saved-items';
-import { useTheme } from '@/hooks/use-theme';
-import { useTopInset } from '@/hooks/use-top-inset';
 import {
   flattenProductPages,
   useAgencyQuery,
-  useAgencyCertificatesQuery,
   useProductsQuery,
 } from '@/hooks/use-queries';
+import { useSavedItems } from '@/hooks/use-saved-items';
+import { useTheme } from '@/hooks/use-theme';
+import { useTopInset } from '@/hooks/use-top-inset';
 import { isSafeExternalUrl, resolveMediaUrl } from '@/services/api';
 import type { Product } from '@/services/products';
 import { getCountryTranslationKey } from '@/utils/countries';
@@ -48,16 +46,12 @@ export default function AgencyDetailScreen() {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   const agencyQuery = useAgencyQuery(id ?? '');
-  const certificatesQuery = useAgencyCertificatesQuery(id ?? '');
   const productsQuery = useProductsQuery({
     agencyId: [id],
     name: debouncedSearch.trim() || undefined,
   });
 
   const agency = agencyQuery.data ?? null;
-  // Scoped server-side now: this used to download every certificate in the
-  // system and filter client-side.
-  const certificates = certificatesQuery.data ?? [];
   const products = flattenProductPages(productsQuery.data?.pages);
 
   const metaLoading = agencyQuery.isPending;
@@ -78,7 +72,6 @@ export default function AgencyDetailScreen() {
 
   function handleRefresh() {
     void agencyQuery.refetch();
-    void certificatesQuery.refetch();
     void productsQuery.refetch();
   }
 
@@ -171,22 +164,6 @@ export default function AgencyDetailScreen() {
           </View>
         )}
       </ThemedView>
-
-      {certificates.length > 0 && (
-        <ThemedView type="surface" style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            {t('agencies.certificates')}
-          </ThemedText>
-          {certificates.map(cert => (
-            <View key={cert.id} style={styles.certificateRow}>
-              <CertificateBadge status={cert.status} />
-              <ThemedText type="small" themeColor="textSecondary">
-                {cert.certificateCode ?? t('agencies.certificateFallback', { id: cert.id })}
-              </ThemedText>
-            </View>
-          ))}
-        </ThemedView>
-      )}
 
       <View style={styles.productsHeader}>
         <ThemedText type="h4" style={styles.sectionTitle}>
