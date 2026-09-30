@@ -268,6 +268,8 @@ When choosing between `@expo/ui/universal` and platform-specific packages (`@exp
 
 **Icons go through `Icon` from `@/components/ui/icon`.** Never import `SymbolView` from `expo-symbols` directly. `expo-symbols` renders nothing on Android or web unless it is given a *per-platform* name — an SF Symbol string alone is iOS-only, which is exactly the bug that left the bottom tab bar blank on Android. The wrapper accepts the SF Symbol string the app is written against and resolves the Material Symbol equivalent through the table in `src/constants/icons.ts`, so `name="bell"` renders on all three platforms. A glyph that genuinely differs per platform can pass `{ ios, android, web }` instead; anything explicit wins over the table. **When you introduce a new glyph, add its SF -> Material entry to `src/constants/icons.ts` in the same change** — an unmapped name degrades to iOS-only (nothing on Android/web) rather than to a wrong icon.
 
+`Icon` also centers the glyph inside its `size x size` box (`alignItems`/`justifyContent: 'center'`). On Android `expo-symbols` paints the Material glyph as a `Text` whose `fontSize` scales with the device font scale while the box stays fixed, so at any non-default system font size the shrunk glyph renders flush-left inside the box — which reads as the icon sitting left of the text it should be centered over. Do not remove the centering style.
+
 ### 3. Platform variants via file extensions, not runtime checks
 
 Use Expo Router's platform-specific file extensions:
@@ -1106,6 +1108,13 @@ it (the two screens had drifted to opposite bugs). Use **`BackButton`** from
 `src/components/back-button.tsx`, which paints `theme.overlay` under `theme.overlayForeground` - a
 scheme-independent scrim, legible over a photo in either scheme - and positions itself from
 `useTopInset().contentTopInset` so it clears the ad banner. Callers pass only `onPress`.
+
+**The chevron needs an iOS optical nudge.** SF Symbols draws `chevron.left` left of its layout box
+(the symbol reserves trailing space so `chevron.left.chevron.right` pairs line up), so at the centre
+of the circular button it reads as off-centre - `UIImage`/`SymbolView` centres the layout box, not
+the ink. `BackButton` shifts the glyph right by a fraction of its size on iOS only; Material's
+`chevron_left` (Android/web) is already symmetric, so the offset must stay behind `Platform.select`.
+Any other circular icon button built on a chevron glyph needs the same treatment.
 
 ### Pattern: logo and product-image plates
 

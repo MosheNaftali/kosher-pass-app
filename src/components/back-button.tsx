@@ -1,4 +1,4 @@
-import { StyleSheet, Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, Pressable, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Icon } from './ui/icon';
@@ -12,6 +12,9 @@ export interface BackButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
+const IconSize = 28;
+const IosChevronOpticalOffset = IconSize * 0.07;
+
 /**
  * Floating back affordance for pushed screens.
  *
@@ -19,6 +22,11 @@ export interface BackButtonProps {
  * content a detail screen puts behind it - a product photo, a light header, a
  * dark header - in either color scheme. It positions itself below the ad banner
  * / safe area through `useTopInset`, so callers only provide an `onPress`.
+ *
+ * SF Symbols draws `chevron.left` left of its layout box (the trailing space
+ * keeps chevron pairs aligned), which reads as an off-centre glyph inside this
+ * circular button. iOS nudges the glyph right by a fraction of its size; the
+ * Material `chevron_left` used on Android and web is already symmetric.
  */
 export function BackButton({ onPress, style }: BackButtonProps) {
   const theme = useTheme();
@@ -31,7 +39,13 @@ export function BackButton({ onPress, style }: BackButtonProps) {
       accessibilityRole="button"
       accessibilityLabel={t('common.a11y.goBack')}
       style={[styles.button, { top: contentTopInset + Spacing.two, backgroundColor: theme.overlay }, style]}>
-      <Icon name="chevron.left" tintColor={theme.overlayForeground} size={28} weight="semibold" />
+      <Icon
+        name="chevron.left"
+        tintColor={theme.overlayForeground}
+        size={IconSize}
+        weight="semibold"
+        style={styles.icon}
+      />
     </Pressable>
   );
 }
@@ -44,4 +58,8 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
     borderRadius: Radius.round,
   },
+  icon: Platform.select({
+    ios: { marginLeft: IosChevronOpticalOffset },
+    default: {},
+  }),
 });
